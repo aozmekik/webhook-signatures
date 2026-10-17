@@ -2,10 +2,12 @@
  * Micro-benchmark: time per successful verification, for each provider and
  * two payload sizes, plus stripe-node's own signature check for reference.
  *
- * Method: build once (`npm run build`), then for every case run a warm-up,
- * followed by SAMPLES timed batches of ITERATIONS sequential awaited calls.
- * The median batch is reported as microseconds per verification. Payloads are
- * synthetic JSON of the stated size.
+ * Method: build once (`npm run build`), warm every case up, then take SAMPLES
+ * rounds; in each round every case runs one timed batch of ITERATIONS
+ * sequential awaited calls. Interleaving the cases spreads background load
+ * evenly across them. Each cell reports the fastest batch and the median
+ * batch, in microseconds per verification. Payloads are synthetic JSON of the
+ * stated size.
  *
  * Usage: npm run build && node scripts/bench.ts
  */
@@ -23,7 +25,7 @@ if (!existsSync(new URL('../dist/index.js', import.meta.url))) {
 const lib = await import('webhook-signatures');
 const testing = await import('webhook-signatures/testing');
 
-const SAMPLES = 7;
+const SAMPLES = 15;
 const ITERATIONS = 2_000;
 const WARMUP = 500;
 const now = new Date('2026-03-14T15:09:26Z');
@@ -92,36 +94,47 @@ async function cases(size: number): Promise<Case[]> {
   ];
 }
 
-async function microsPerOp(run: () => unknown): Promise<number> {
-  for (let i = 0; i < WARMUP; i++) {
+async function timeBatch(run: () => unknown): Promise<number> {
+  const start = performance.now();
+  for (let i = 0; i < ITERATIONS; i++) {
     await run();
   }
-  const samples: number[] = [];
-  for (let s = 0; s < SAMPLES; s++) {
-    const start = performance.now();
-    for (let i = 0; i < ITERATIONS; i++) {
-      await run();
-    }
-    samples.push(((performance.now() - start) * 1000) / ITERATIONS);
-  }
-  samples.sort((a, b) => a - b);
-  return samples[Math.floor(SAMPLES / 2)] ?? Number.NaN;
+  return ((performance.now() - start) * 1000) / ITERATIONS;
+}
+
+function summarize(samples: number[]): string {
+  const sorted = [...samples].sort((a, b) => a - b);
+  const min = sorted[0] ?? Number.NaN;
+  const median = sorted[Math.floor(sorted.length / 2)] ?? Number.NaN;
+  return `${min.toFixed(1)} / ${median.toFixed(1)}`;
 }
 
 const cpu = os.cpus()[0]?.model ?? 'unknown CPU';
+const [load1] = os.loadavg();
 console.log(
-  `Node ${process.version}, ${cpu}, ${os.cpus().length} cores; median of ${SAMPLES} batches x ${ITERATIONS} calls\n`,
+  `Node ${process.version}, ${cpu}, ${os.cpus().length} cores, 1-min load average ${(load1 ?? 0).toFixed(1)} at start; ` +
+    `${SAMPLES} interleaved rounds x ${ITERATIONS} calls\n`,
 );
-console.log('| Case | 1 KiB body (µs/op) | 64 KiB body (µs/op) |');
-console.log('| --- | ---: | ---: |');
+
 const small = await cases(1024);
 const large = await cases(64 * 1024);
-for (const [index, [label, run]] of small.entries()) {
-  const largeRun = large[index]?.[1];
-  if (largeRun === undefined) {
-    continue;
+const all = [...small, ...large];
+for (const [, run] of all) {
+  for (let i = 0; i < WARMUP; i++) {
+    await run();
   }
-  const a = await microsPerOp(run);
-  const b = await microsPerOp(largeRun);
-  console.log(`| ${label} | ${a.toFixed(1)} | ${b.toFixed(1)} |`);
+}
+const samples = all.map((): number[] => []);
+for (let round = 0; round < SAMPLES; round++) {
+  for (const [index, [, run]] of all.entries()) {
+    samples[index]?.push(await timeBatch(run));
+  }
+}
+
+console.log('| Case | 1 KiB body, µs/op (min / median) | 64 KiB body, µs/op (min / median) |');
+console.log('| --- | ---: | ---: |');
+for (const [index, [label]] of small.entries()) {
+  const a = samples[index] ?? [];
+  const b = samples[index + small.length] ?? [];
+  console.log(`| ${label} | ${summarize(a)} | ${summarize(b)} |`);
 }
