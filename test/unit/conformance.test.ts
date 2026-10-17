@@ -43,6 +43,46 @@ describe.each(providerCases)('$id', (provider) => {
     );
   });
 
+  it('accepts an empty body when it was signed', async () => {
+    const headers = await sign({ payload: '' });
+    await expect(
+      provider.verify({ payload: '', headers, secret, now: NOW }),
+    ).resolves.toBeDefined();
+  });
+
+  it('verifies concurrent requests independently', async () => {
+    // No shared mutable state: interleaved valid and forged requests each get
+    // their own verdict.
+    const bodies = Array.from({ length: 64 }, (_, i) => `${payload}${' '.repeat(i % 4)}`);
+    const signed = await Promise.all(bodies.map((body) => sign({ payload: body })));
+    const outcomes = await Promise.all(
+      bodies.map((body, i) =>
+        provider
+          .verify({
+            payload: i % 3 === 0 ? tamper(body) : body,
+            headers: signed[i] ?? {},
+            secret,
+            now: NOW,
+          })
+          .then(
+            () => 'ok',
+            (error: unknown) => (error as { code?: string }).code,
+          ),
+      ),
+    );
+    expect(outcomes).toEqual(bodies.map((_, i) => (i % 3 === 0 ? 'signature_mismatch' : 'ok')));
+  });
+
+  it('does not mutate the caller payload or headers', async () => {
+    const headers = await sign();
+    const headersBefore = { ...headers };
+    const bytes = new TextEncoder().encode(payload);
+    const bytesBefore = [...bytes];
+    await provider.verify({ payload: bytes, headers, secret, now: NOW });
+    expect(headers).toEqual(headersBefore);
+    expect([...bytes]).toEqual(bytesBefore);
+  });
+
   it('rejects a body with an extra trailing newline', async () => {
     const headers = await sign();
     await expectCode(

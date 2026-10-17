@@ -231,7 +231,7 @@ this README on an Apple M1 Pro (16 GB), macOS, Node v22.22.3, Vitest 5.0.5:
 
 | What                                                                                                                                                                                                                                                                                   | Where                                     |
 | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
-| Shared conformance suite run once per provider (round trip, tampering, wrong and rotated secrets, header casing, `Headers` objects, Node header arrays, payload types, replay windows at and past their bounds)                                                                        | `test/unit/conformance.test.ts`           |
+| Shared conformance suite run once per provider (round trip, tampering, wrong and rotated secrets, header casing, `Headers` objects, Node header arrays, payload types, empty bodies, concurrent requests, replay windows at and past their bounds)                                     | `test/unit/conformance.test.ts`           |
 | Published test vectors from the GitHub, Slack, Twilio and Svix docs and the Standard Webhooks reference tests                                                                                                                                                                          | `test/unit/vectors.test.ts`               |
 | Malformed-header tables for every documented format                                                                                                                                                                                                                                    | `test/unit/malformed-headers.test.ts`     |
 | Property tests (fast-check): sign/verify round trips, single-byte tamper detection, a parser fuzz that may only ever produce `WebhookVerificationError`                                                                                                                                | `test/unit/properties.test.ts`            |
@@ -240,7 +240,7 @@ this README on an Apple M1 Pro (16 GB), macOS, Node v22.22.3, Vitest 5.0.5:
 | The library bundled for esbuild's `neutral` platform and run inside a fresh `@edge-runtime/vm` context and inside workerd (Miniflare), neither of which has `process`, `Buffer` or `require`                                                                                           | `test/isolation/`                         |
 | Every example handler, end to end                                                                                                                                                                                                                                                      | `test/examples/`                          |
 
-`npm test` runs 730 tests: 394 in the Node project and the 336 unit and property
+`npm test` runs 778 tests: 418 in the Node project and the 360 unit and property
 tests again under Vitest's `edge-runtime` environment. `npm run test:coverage`
 reports 100% of statements (434/434), branches (244/244), functions (61/61) and
 lines (430/430) in `src/`, and CI fails below that.
