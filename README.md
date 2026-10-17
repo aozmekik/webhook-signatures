@@ -13,11 +13,12 @@ but the Web Crypto API.
 ## Why
 
 Every provider signs webhooks slightly differently, and each official SDK
-verifies only its own scheme, usually through `node:crypto`. On Cloudflare
-Workers, Vercel Edge or Deno that either does not run or pulls in a large
-dependency for one HMAC. The usual hand-rolled alternative gets the details
-wrong: comparing with `===`, verifying a re-serialized JSON body, forgetting
-the replay window, or accepting Stripe's `v0` test signatures.
+verifies only its own scheme. An application that receives webhooks from
+several providers ends up shipping several SDKs, some built around
+`node:crypto` and `Buffer`, just to compute HMACs, which is awkward on edge
+runtimes. Hand-rolled verification is easy to get subtly wrong: comparing with
+`===`, verifying a re-serialized JSON body, forgetting the replay window, or
+accepting Stripe's `v0` test signatures.
 
 This library implements each scheme from the provider's documentation, behind
 one small, typed API, using only `crypto.subtle`.
@@ -40,7 +41,8 @@ one small, typed API, using only `crypto.subtle`.
   record.
 - **Tree-shakable**: one verifier costs 1.6 to 2.4 kB minified and gzipped.
 - **Test helpers**: `sign*` functions produce valid headers for your own tests.
-- **Cross-validated** against the official SDKs, in both directions.
+- **Cross-validated** against the official SDKs: their signatures verify here,
+  and this library's signatures verify with them where the SDK can sign.
 
 ## Install
 
@@ -227,16 +229,16 @@ Node.js, Web Crypto is several times slower per call than synchronous
 The test suite runs on every CI build (Node 22 and 24, Ubuntu) and was run for
 this README on an Apple M1 Pro (16 GB), macOS, Node v22.22.3, Vitest 5.0.5:
 
-| What                                                                                                                                                                                                            | Where                                     |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
-| Shared conformance suite run once per provider (round trip, tampering, wrong and rotated secrets, header casing, `Headers` objects, Node header arrays, payload types, replay windows at and past their bounds) | `test/unit/conformance.test.ts`           |
-| Published test vectors from the GitHub, Slack, Twilio and Svix docs and the Standard Webhooks reference tests                                                                                                   | `test/unit/vectors.test.ts`               |
-| Malformed-header tables for every documented format                                                                                                                                                             | `test/unit/malformed-headers.test.ts`     |
-| Property tests (fast-check): sign/verify round trips, single-byte tamper detection, a parser fuzz that may only ever produce `WebhookVerificationError`                                                         | `test/unit/properties.test.ts`            |
-| Official SDKs, both directions: `stripe`, `@octokit/webhooks-methods`, `standardwebhooks`, `svix`, `resend`, `twilio`, `@paddle/paddle-node-sdk`, `@slack/bolt` (`verifySlackRequest`), `@shopify/shopify-api`  | `test/interop/`                           |
-| An independent `node:crypto` re-implementation of every scheme (the only cross-check for Lemon Squeezy, which has no verification SDK)                                                                          | `test/interop/node-crypto-oracle.test.ts` |
-| The library bundled for esbuild's `neutral` platform and run inside a fresh `@edge-runtime/vm` context and inside workerd (Miniflare), neither of which has `process`, `Buffer` or `require`                    | `test/isolation/`                         |
-| Every example handler, end to end                                                                                                                                                                               | `test/examples/`                          |
+| What                                                                                                                                                                                                                                                                                   | Where                                     |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| Shared conformance suite run once per provider (round trip, tampering, wrong and rotated secrets, header casing, `Headers` objects, Node header arrays, payload types, replay windows at and past their bounds)                                                                        | `test/unit/conformance.test.ts`           |
+| Published test vectors from the GitHub, Slack, Twilio and Svix docs and the Standard Webhooks reference tests                                                                                                                                                                          | `test/unit/vectors.test.ts`               |
+| Malformed-header tables for every documented format                                                                                                                                                                                                                                    | `test/unit/malformed-headers.test.ts`     |
+| Property tests (fast-check): sign/verify round trips, single-byte tamper detection, a parser fuzz that may only ever produce `WebhookVerificationError`                                                                                                                                | `test/unit/properties.test.ts`            |
+| Official SDKs (our signatures through their verifiers, and theirs through ours where the SDK can sign): `stripe`, `@octokit/webhooks-methods`, `standardwebhooks`, `svix`, `resend`, `twilio`, `@paddle/paddle-node-sdk`, `@slack/bolt` (`verifySlackRequest`), `@shopify/shopify-api` | `test/interop/`                           |
+| An independent `node:crypto` re-implementation of every scheme (the only cross-check for Lemon Squeezy, which has no verification SDK)                                                                                                                                                 | `test/interop/node-crypto-oracle.test.ts` |
+| The library bundled for esbuild's `neutral` platform and run inside a fresh `@edge-runtime/vm` context and inside workerd (Miniflare), neither of which has `process`, `Buffer` or `require`                                                                                           | `test/isolation/`                         |
+| Every example handler, end to end                                                                                                                                                                                                                                                      | `test/examples/`                          |
 
 `npm test` runs 730 tests: 394 in the Node project and the 336 unit and property
 tests again under Vitest's `edge-runtime` environment. `npm run test:coverage`
@@ -293,8 +295,8 @@ noisy; the fastest batches are the more stable comparison.
 Reading: on Node.js the cost is dominated by Web Crypto itself. stripe-node's
 own Web Crypto path costs the same as this library; its synchronous
 `node:crypto` path is faster. Either way it is well under a millisecond per
-webhook. Twilio's row is higher because it also hashes the body and may try
-the URL twice (with and without the port).
+webhook. Twilio's row is higher because it also computes a SHA-256 of the
+body and parses the URL.
 
 ## Limitations
 
