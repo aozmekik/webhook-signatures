@@ -111,7 +111,7 @@ verify them with `verifyStandardWebhook` and the endpoint's `whsec_...` secret.
 
 ## API
 
-```ts
+```text
 // Every verifier: (options) => Promise<Result>, rejecting with WebhookVerificationError.
 verifyStripe({ payload, headers, secret, toleranceSeconds?, now? })   // { provider, timestamp }
 verifyGitHub({ payload, headers, secret })                            // { provider, deliveryId, event }
@@ -220,35 +220,53 @@ Providers retry, and anyone who captures a request can resend it.
 - [ADR 0004](docs/adr/0004-error-model-and-check-order.md): error codes, check
   order, symmetric replay windows, and why signed bytes are never re-serialized.
 
-Trade-offs worth knowing: the API is `async` because `crypto.subtle` is; on
-Node.js, Web Crypto is several times slower per call than synchronous
-`node:crypto` (see below), which is a few tens of microseconds per webhook.
+Trade-offs worth knowing: the API is `async` because `crypto.subtle` is. On
+Node.js, Web Crypto costs more per call than synchronous `node:crypto`: in the
+benchmark below, about 7x at 1 KiB and 2x at 64 KiB, which is tens to a couple
+of hundred microseconds per webhook.
 
 ## Testing
 
-The test suite runs on every CI build (Node 22 and 24, Ubuntu) and was run for
-this README on an Apple M1 Pro (16 GB), macOS, Node v22.22.3, Vitest 5.0.5:
+CI is configured to run everything below on Node 22 and 24 (Ubuntu). The counts
+in this section come from a local run on an Apple M1 Pro (16 GB), macOS,
+Node v22.22.3, Vitest 5.0.5; Node 24 has not been run locally.
 
-| What                                                                                                                                                                                                                                                                                   | Where                                     |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
-| Shared conformance suite run once per provider (round trip, tampering, wrong and rotated secrets, header casing, `Headers` objects, Node header arrays, payload types, empty bodies, concurrent requests, replay windows at and past their bounds)                                     | `test/unit/conformance.test.ts`           |
-| Published test vectors from the GitHub, Slack, Twilio and Svix docs and the Standard Webhooks reference tests                                                                                                                                                                          | `test/unit/vectors.test.ts`               |
-| Malformed-header tables for every documented format                                                                                                                                                                                                                                    | `test/unit/malformed-headers.test.ts`     |
-| Property tests (fast-check): sign/verify round trips, single-byte tamper detection, a parser fuzz that may only ever produce `WebhookVerificationError`                                                                                                                                | `test/unit/properties.test.ts`            |
-| Official SDKs (our signatures through their verifiers, and theirs through ours where the SDK can sign): `stripe`, `@octokit/webhooks-methods`, `standardwebhooks`, `svix`, `resend`, `twilio`, `@paddle/paddle-node-sdk`, `@slack/bolt` (`verifySlackRequest`), `@shopify/shopify-api` | `test/interop/`                           |
-| An independent `node:crypto` re-implementation of every scheme (the only cross-check for Lemon Squeezy, which has no verification SDK)                                                                                                                                                 | `test/interop/node-crypto-oracle.test.ts` |
-| The library bundled for esbuild's `neutral` platform and run inside a fresh `@edge-runtime/vm` context and inside workerd (Miniflare), neither of which has `process`, `Buffer` or `require`                                                                                           | `test/isolation/`                         |
-| Every example handler, end to end                                                                                                                                                                                                                                                      | `test/examples/`                          |
+- **Conformance suite**, run once per provider: round trip, tampering, wrong and
+  rotated secrets, header casing, `Headers` objects, Node header arrays,
+  payload types, empty bodies, concurrent requests, replay windows at and past
+  their bounds ([`test/unit/conformance.test.ts`](test/unit/conformance.test.ts)).
+- **Published test vectors** from the GitHub, Slack, Twilio and Svix docs and the
+  Standard Webhooks reference tests ([`test/unit/vectors.test.ts`](test/unit/vectors.test.ts)).
+- **Malformed-header tables** for every documented format
+  ([`test/unit/malformed-headers.test.ts`](test/unit/malformed-headers.test.ts)).
+- **Property tests** (fast-check): sign/verify round trips, single-byte tamper
+  detection, and a parser fuzz that may only ever produce
+  `WebhookVerificationError` ([`test/unit/properties.test.ts`](test/unit/properties.test.ts)).
+- **Official SDKs** ([`test/interop/`](test/interop/)): signatures from this
+  library go through each SDK's verifier, and, where the SDK can sign, its
+  signatures go through this library: `stripe`, `@octokit/webhooks-methods`,
+  `standardwebhooks`, `svix`, `resend`, `twilio`, `@paddle/paddle-node-sdk`,
+  `@slack/bolt` (`verifySlackRequest`) and `@shopify/shopify-api`.
+- **An independent oracle**: every scheme re-implemented in a few lines of
+  `node:crypto` and compared over generated inputs; the only cross-check for
+  Lemon Squeezy, which ships no verification SDK
+  ([`test/interop/node-crypto-oracle.test.ts`](test/interop/node-crypto-oracle.test.ts)).
+- **Isolated runtimes**: the library is bundled for esbuild's `neutral` platform
+  and run inside a fresh `@edge-runtime/vm` context and inside workerd via
+  Miniflare, neither of which has `process`, `Buffer` or `require`
+  ([`test/isolation/`](test/isolation/)).
+- **Examples**: every handler in `examples/`, end to end ([`test/examples/`](test/examples/)).
 
-`npm test` runs 778 tests: 418 in the Node project and the 360 unit and property
-tests again under Vitest's `edge-runtime` environment. `npm run test:coverage`
-reports 100% of statements (434/434), branches (244/244), functions (61/61) and
-lines (430/430) in `src/`, and CI fails below that.
+`npm test` runs 778 tests: 418 in the Node project, plus the 360 unit and
+property tests again under Vitest's `edge-runtime` environment.
+`npm run test:coverage` reports 100% of statements (434/434), branches
+(244/244), functions (61/61) and lines (430/430) in `src/`; the configured
+threshold fails the run below that.
 
-**Runtime support, honestly:** Node.js 22 and 24 run in CI. The Vercel Edge
-Runtime is exercised through `@edge-runtime/vm`, and Cloudflare Workers through
-workerd via Miniflare. Deno and Bun are not tested yet; the library only uses
-APIs they implement.
+**Runtime support, honestly:** Node.js is tested directly (22 locally; 22 and
+24 configured in CI). The Vercel Edge Runtime is exercised through
+`@edge-runtime/vm`, and Cloudflare Workers through workerd via Miniflare. Deno
+and Bun are not tested yet; the library only uses APIs they implement.
 
 ## Bundle size
 
