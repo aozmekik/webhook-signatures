@@ -1,0 +1,36 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    groups:
+      provider-sdks:
+        patterns:
+          - '@octokit/*'
+          - '@paddle/*'
+          - '@shopify/*'
+          - '@slack/*'
+          - resend
+          - standardwebhooks
+          - stripe
+          - svix
+          - twilio
+      tooling:
+        patterns:
+          - '*'
+        exclude-patterns:
+          - '@octokit/*'
+          - '@paddle/*'
+          - '@shopify/*'
+          - '@slack/*'
+          - resend
+          - standardwebhooks
+          - stripe
+          - svix
+          - twilio
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

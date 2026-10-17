@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Format, lint, typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm run typecheck
+
+  test:
+    name: Test (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - name: Node suites with coverage (unit, SDK interop, isolation, examples)
+        run: npm run test:coverage
+      - name: Unit suites in the edge-runtime environment
+        run: npm run test:edge
+
+  build:
+    name: Build and package checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm run check:package
+      - name: Bundle sizes and tree-shaking guard
+        run: npm run size >> "$GITHUB_STEP_SUMMARY"
+      - name: Install the packed tarball into an empty project
+        run: |
+          npm pack --pack-destination "$RUNNER_TEMP"
+          mkdir "$RUNNER_TEMP/consumer"
+          cd "$RUNNER_TEMP/consumer"
+          npm init -y > /dev/null
+          npm install --no-audit --no-fund "$RUNNER_TEMP"/webhook-signatures-*.tgz
+          node --input-type=module -e "
+            import { verifyGitHub } from 'webhook-signatures';
+            import { signGitHub } from 'webhook-signatures/testing';
+            const headers = await signGitHub({ payload: 'ok', secret: 's' });
+            console.log(await verifyGitHub({ payload: 'ok', headers, secret: 's' }));
+          "
+          node -e "console.log(typeof require('webhook-signatures').verifyStripe)"
