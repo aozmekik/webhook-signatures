@@ -1,6 +1,5 @@
 import type { Bytes } from './bytes.js';
 
-const HEX_DIGITS = '0123456789abcdef';
 const HEX_PATTERN = /^[0-9a-fA-F]*$/;
 const BASE64_PATTERN = /^[A-Za-z0-9+/]*={0,2}$/;
 
@@ -8,7 +7,7 @@ const BASE64_PATTERN = /^[A-Za-z0-9+/]*={0,2}$/;
 export function bytesToHex(bytes: Uint8Array): string {
   let out = '';
   for (const byte of bytes) {
-    out += (HEX_DIGITS[byte >> 4] ?? '') + (HEX_DIGITS[byte & 0x0f] ?? '');
+    out += byte.toString(16).padStart(2, '0');
   }
   return out;
 }
@@ -52,12 +51,9 @@ export function base64ToBytes(base64: string, expectedLength?: number): Bytes | 
   if (unpadded.length !== base64.length && base64.length % 4 !== 0) {
     return undefined;
   }
-  let binary: string;
-  try {
-    binary = atob(unpadded);
-  } catch {
-    return undefined;
-  }
+  // The checks above leave only input that the forgiving-base64 decoder
+  // behind atob() accepts, so it cannot throw here.
+  const binary = atob(unpadded);
   if (expectedLength !== undefined && binary.length !== expectedLength) {
     return undefined;
   }
