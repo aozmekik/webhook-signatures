@@ -1,0 +1,90 @@
+{
+  "name": "webhook-signatures",
+  "version": "0.1.0",
+  "description": "Zero-dependency webhook signature verification for Stripe, GitHub, Slack, Shopify, Standard Webhooks/Svix, Twilio, Paddle and Lemon Squeezy using only Web Crypto.",
+  "keywords": [
+    "webhook",
+    "signature",
+    "hmac",
+    "web-crypto",
+    "stripe",
+    "github",
+    "slack",
+    "shopify",
+    "svix",
+    "standard-webhooks",
+    "twilio",
+    "paddle",
+    "lemon-squeezy",
+    "edge"
+  ],
+  "homepage": "https://github.com/aozmekik/webhook-signatures#readme",
+  "bugs": {
+    "url": "https://github.com/aozmekik/webhook-signatures/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aozmekik/webhook-signatures.git"
+  },
+  "license": "MIT",
+  "author": "Ahmed Semih Özmekik (https://github.com/aozmekik)",
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "default": "./dist/testing.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "node scripts/clean.ts && tsc -p tsconfig.build.json",
+    "prepare": "npm run build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint . --max-warnings=0",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:node": "vitest run --project node",
+    "test:edge": "vitest run --project edge",
+    "test:coverage": "vitest run --project node --coverage",
+    "test:watch": "vitest",
+    "check:package": "publint --strict && attw --pack . --profile esm-only",
+    "size": "node scripts/bundle-size.ts",
+    "ci": "npm run format:check && npm run lint && npm run typecheck && npm run test:coverage && npm run test:edge && npm run build && npm run check:package && npm run size"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
+    "@edge-runtime/vm": "^5.0.0",
+    "@eslint/js": "^10.0.1",
+    "@octokit/webhooks-methods": "^6.0.0",
+    "@paddle/paddle-node-sdk": "^3.10.0",
+    "@shopify/shopify-api": "^15.0.1",
+    "@slack/bolt": "^5.1.0",
+    "@types/node": "^22.20.5",
+    "@vitest/coverage-v8": "^5.0.5",
+    "esbuild": "^0.28.2",
+    "eslint": "^10.13.0",
+    "fast-check": "^4.10.2",
+    "prettier": "^3.9.10",
+    "publint": "^0.3.25",
+    "standardwebhooks": "^1.1.1",
+    "stripe": "^23.0.0",
+    "svix": "^2.8.0",
+    "twilio": "^6.2.0",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.71.2",
+    "vitest": "^5.0.5"
+  }
+}

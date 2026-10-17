@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Build output (rebuilt by `npm run build`, and by the `prepare` script on git installs)
+dist/
+*.tsbuildinfo
+
+# Test and coverage output
+coverage/
+.vitest-cache/
+
+# Packed tarballs
+*.tgz
+
+# Caches and tooling
+.cache/
+.eslintcache
+.wrangler/
+.mf/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
