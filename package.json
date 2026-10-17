@@ -63,6 +63,7 @@
     "test:watch": "vitest",
     "check:package": "publint --strict && attw --pack . --profile esm-only",
     "size": "node scripts/bundle-size.ts",
+    "bench": "node scripts/bench.ts",
     "ci": "npm run format:check && npm run lint && npm run typecheck && npm run test:coverage && npm run test:edge && npm run build && npm run check:package && npm run size"
   },
   "devDependencies": {
