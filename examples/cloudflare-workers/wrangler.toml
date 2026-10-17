@@ -1,0 +1,4 @@
+# Local development only: `npx wrangler dev` from this directory.
+name = "webhook-signatures-example"
+main = "worker.ts"
+compatibility_date = "2026-07-01"
