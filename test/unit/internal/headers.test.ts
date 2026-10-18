@@ -19,6 +19,30 @@ describe('readHeader', () => {
     expect(readHeader({ a: ' v' }, 'a', 'github')).toBe(' v');
   });
 
+  it('keeps interior whitespace and treats whitespace-only values as blank', () => {
+    expect(readHeader({ a: 'v \t w' }, 'a', 'github')).toBe('v \t w');
+    expect(readHeader({ a: '\t' }, 'a', 'github')).toBeUndefined();
+  });
+
+  it('trims in linear time, even around a long interior run of whitespace', () => {
+    // Regression test: a backtracking trim regex took seconds on 32 KB of
+    // interior spaces and grew quadratically. A megabyte takes a few
+    // milliseconds with the linear scan; the budget is two orders of
+    // magnitude above that and three below the quadratic behaviour.
+    const value = `a${' \t'.repeat(500_000)}b`;
+    const start = performance.now();
+    expect(readHeader({ a: ` ${value} ` }, 'a', 'github')).toBe(value);
+    expect(readHeader(new Headers({ a: value }), 'a', 'github')).toBe(value);
+    expect(performance.now() - start).toBeLessThan(1000);
+  });
+
+  it('rejects a Map, whose get() is case-sensitive, with a TypeError', () => {
+    const headers = new Map([['X-Hub-Signature-256', 'sha256=00']]);
+    expect(() =>
+      readHeader(headers as unknown as Headers, 'x-hub-signature-256', 'github'),
+    ).toThrow(/not a Map/);
+  });
+
   it('treats blank, undefined and empty arrays as absent', () => {
     for (const value of ['', ' ', undefined, [], ['', ' ']]) {
       expect(readHeader({ a: value }, 'a', 'github')).toBeUndefined();

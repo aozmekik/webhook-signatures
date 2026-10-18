@@ -188,6 +188,25 @@ describe.each(providerCases)('$id', (provider) => {
     await expectCode(provider.verify({ payload, headers, secret, now: NOW }), 'malformed_header');
   });
 
+  it('rejects a megabyte of padded signature header in linear time', async () => {
+    // Headers are parsed before any authentication, so parsing must stay
+    // linear. A few milliseconds are expected; see the trim test in
+    // internal/headers.test.ts for how the budget was chosen.
+    const signed = await sign();
+    const value = `a${' '.repeat(1_000_000)}b`;
+    const start = performance.now();
+    await expectCode(
+      provider.verify({
+        payload,
+        headers: withHeader(signed, provider.signatureHeader, value),
+        secret,
+        now: NOW,
+      }),
+      'malformed_header',
+    );
+    expect(performance.now() - start).toBeLessThan(1000);
+  });
+
   it('rejects a missing or blank signature header', async () => {
     const signed = await sign();
     for (const value of [undefined, '', '   ']) {

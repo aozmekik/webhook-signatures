@@ -12,6 +12,27 @@ function isHeadersLike(value: unknown): value is HeadersLike {
 }
 
 /**
+ * Throws a `TypeError` unless `headers` is a `Headers`-like object or a plain
+ * record. Re-checked at runtime for JavaScript callers; the type already
+ * excludes the rest.
+ *
+ * A `Map` is rejected explicitly: it has a `get` method, so it would pass for
+ * a `Headers` object, but its lookups are case-sensitive and the usual
+ * `X-Hub-Signature-256` spelling would then look like a missing header.
+ */
+export function assertHeadersInput(headers: unknown): asserts headers is HeadersInput {
+  if (typeof headers !== 'object' || headers === null) {
+    throw new TypeError('headers must be a Headers object or a plain object of header values');
+  }
+  if (Object.prototype.toString.call(headers) === '[object Map]') {
+    throw new TypeError(
+      'headers must be a Headers object or a plain object of header values, not a Map; ' +
+        'convert it with Object.fromEntries(map) or new Headers([...map])',
+    );
+  }
+}
+
+/**
  * Reads one header, case-insensitively. Returns `undefined` when the header is
  * absent or blank. Leading and trailing whitespace is removed, as HTTP does.
  *
@@ -30,13 +51,9 @@ export function readHeader(
   name: string,
   provider: ProviderId,
 ): string | undefined {
+  assertHeadersInput(headers);
   if (isHeadersLike(headers)) {
     return normalize(headers.get(name) ?? undefined);
-  }
-  // Re-checked at runtime for JavaScript callers; the type already excludes it.
-  const record: unknown = headers;
-  if (typeof record !== 'object' || record === null) {
-    throw new TypeError('headers must be a Headers object or a plain object of header values');
   }
   let found: string | undefined;
   for (const key of Object.keys(headers)) {
@@ -102,14 +119,29 @@ function valueOf(raw: unknown, name: string, provider: ProviderId): string | und
 }
 
 // HTTP optional whitespace is spaces and horizontal tabs only (RFC 9110, section 5.6.3).
-const SURROUNDING_OWS = /^[\t ]+|[\t ]+$/g;
+function isOws(charCode: number): boolean {
+  return charCode === 0x20 || charCode === 0x09;
+}
 
+/**
+ * Trims optional whitespace with two index scans. Header values arrive before
+ * any authentication, so this must stay linear in the value's length: a
+ * regular expression such as `/^[\t ]+|[\t ]+$/g` backtracks quadratically
+ * on long interior runs of whitespace.
+ */
 function normalize(value: string | undefined): string | undefined {
   if (value === undefined) {
     return undefined;
   }
-  const trimmed = value.replace(SURROUNDING_OWS, '');
-  return trimmed === '' ? undefined : trimmed;
+  let start = 0;
+  let end = value.length;
+  while (start < end && isOws(value.charCodeAt(start))) {
+    start++;
+  }
+  while (end > start && isOws(value.charCodeAt(end - 1))) {
+    end--;
+  }
+  return start === end ? undefined : value.slice(start, end);
 }
 
 function duplicate(name: string, provider: ProviderId): WebhookVerificationError {
