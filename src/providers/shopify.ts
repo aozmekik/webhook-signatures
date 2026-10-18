@@ -16,13 +16,15 @@ import { payloadToBytes, utf8 } from '../internal/bytes.js';
 import { hmacSign, hmacVerifyAny } from '../internal/crypto.js';
 import { base64ToBytes, bytesToBase64 } from '../internal/encoding.js';
 import { malformedHeader, signatureMismatch } from '../internal/failures.js';
-import { readHeader, requireHeader } from '../internal/headers.js';
 import { readVerifyInput } from '../internal/input.js';
 import { firstSecret } from '../internal/secrets.js';
 import type { SignOptions, SignedHeaders, VerifyOptions } from '../types.js';
 
 const PROVIDER = 'shopify';
 const HEADER = 'x-shopify-hmac-sha256';
+const WEBHOOK_ID_HEADER = 'x-shopify-webhook-id';
+const TOPIC_HEADER = 'x-shopify-topic';
+const HEADERS = [HEADER, WEBHOOK_ID_HEADER, TOPIC_HEADER] as const;
 
 /** Options for {@link verifyShopify}. `secret` is the app's client secret. */
 export type ShopifyVerifyOptions = VerifyOptions;
@@ -47,8 +49,8 @@ export interface ShopifyVerifyResult {
  * @throws {@link WebhookVerificationError} when verification fails.
  */
 export async function verifyShopify(options: ShopifyVerifyOptions): Promise<ShopifyVerifyResult> {
-  const { payload, secrets } = readVerifyInput(options, PROVIDER);
-  const value = requireHeader(options.headers, HEADER, PROVIDER, 'X-Shopify-Hmac-SHA256');
+  const { payload, secrets, headers } = readVerifyInput(options, PROVIDER, HEADERS);
+  const value = headers.getRequired(HEADER, 'X-Shopify-Hmac-SHA256');
   const signature = base64ToBytes(value, 32);
   if (signature === undefined) {
     throw malformedHeader(
@@ -62,8 +64,8 @@ export async function verifyShopify(options: ShopifyVerifyOptions): Promise<Shop
   }
   return {
     provider: PROVIDER,
-    webhookId: readHeader(options.headers, 'x-shopify-webhook-id', PROVIDER),
-    topic: readHeader(options.headers, 'x-shopify-topic', PROVIDER),
+    webhookId: headers.get(WEBHOOK_ID_HEADER),
+    topic: headers.get(TOPIC_HEADER),
   };
 }
 

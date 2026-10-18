@@ -1,27 +1,40 @@
 import { describe, expect, it } from 'vitest';
 import { WebhookVerificationError } from 'webhook-signatures';
-import { readHeader, requireHeader } from '../../../src/internal/headers.js';
+import { captureHeaders } from '../../../src/internal/headers.js';
 
-describe('readHeader', () => {
+/** Captures header `a` from `headers` and returns its value. */
+function readA(headers: unknown): string | undefined {
+  return captureHeaders(headers, ['a'], 'github').get('a');
+}
+
+describe('captureHeaders', () => {
   it('reads Headers objects case-insensitively', () => {
     const headers = new Headers({ 'Stripe-Signature': 't=1' });
-    expect(readHeader(headers, 'stripe-signature', 'stripe')).toBe('t=1');
+    expect(captureHeaders(headers, ['stripe-signature'], 'stripe').get('stripe-signature')).toBe(
+      't=1',
+    );
   });
 
   it('reads any object with a get method (polyfills, other realms)', () => {
     const headers = { get: (name: string) => (name === 'x-signature' ? ' abc ' : null) };
-    expect(readHeader(headers as unknown as Headers, 'x-signature', 'lemon-squeezy')).toBe('abc');
-    expect(readHeader(headers as unknown as Headers, 'x-other', 'lemon-squeezy')).toBeUndefined();
+    const captured = captureHeaders(headers, ['x-signature', 'x-other'], 'lemon-squeezy');
+    expect(captured.get('x-signature')).toBe('abc');
+    expect(captured.get('x-other')).toBeUndefined();
+  });
+
+  it('reads plain records case-insensitively', () => {
+    expect(readA({ A: 'v' })).toBe('v');
   });
 
   it('trims HTTP whitespace (spaces and tabs) only', () => {
-    expect(readHeader({ a: ' \tv\t ' }, 'a', 'github')).toBe('v');
-    expect(readHeader({ a: ' v' }, 'a', 'github')).toBe(' v');
+    expect(readA({ a: ' \tv\t ' })).toBe('v');
+    // A no-break space is not HTTP whitespace.
+    expect(readA({ a: '\u00a0v' })).toBe('\u00a0v');
   });
 
   it('keeps interior whitespace and treats whitespace-only values as blank', () => {
-    expect(readHeader({ a: 'v \t w' }, 'a', 'github')).toBe('v \t w');
-    expect(readHeader({ a: '\t' }, 'a', 'github')).toBeUndefined();
+    expect(readA({ a: 'v \t w' })).toBe('v \t w');
+    expect(readA({ a: '\t' })).toBeUndefined();
   });
 
   it('trims in linear time, even around a long interior run of whitespace', () => {
@@ -31,46 +44,80 @@ describe('readHeader', () => {
     // magnitude above that and three below the quadratic behaviour.
     const value = `a${' \t'.repeat(500_000)}b`;
     const start = performance.now();
-    expect(readHeader({ a: ` ${value} ` }, 'a', 'github')).toBe(value);
-    expect(readHeader(new Headers({ a: value }), 'a', 'github')).toBe(value);
+    expect(readA({ a: ` ${value} ` })).toBe(value);
+    expect(readA(new Headers({ a: value }))).toBe(value);
     expect(performance.now() - start).toBeLessThan(1000);
+  });
+
+  it('rejects headers that are not an object with a TypeError', () => {
+    for (const headers of [null, undefined, 'a: b', 1]) {
+      expect(() => readA(headers)).toThrow(TypeError);
+    }
   });
 
   it('rejects a Map, whose get() is case-sensitive, with a TypeError', () => {
     const headers = new Map([['X-Hub-Signature-256', 'sha256=00']]);
-    expect(() =>
-      readHeader(headers as unknown as Headers, 'x-hub-signature-256', 'github'),
-    ).toThrow(/not a Map/);
+    expect(() => captureHeaders(headers, ['x-hub-signature-256'], 'github')).toThrow(/not a Map/);
   });
 
   it('treats blank, undefined and empty arrays as absent', () => {
     for (const value of ['', ' ', undefined, [], ['', ' ']]) {
-      expect(readHeader({ a: value }, 'a', 'github')).toBeUndefined();
+      expect(readA({ a: value })).toBeUndefined();
     }
-  });
-
-  it('accepts duplicates that agree and rejects ones that differ', () => {
-    expect(readHeader({ A: 'v', a: 'v', 'a ': 'ignored' }, 'a', 'github')).toBe('v');
-    expect(readHeader({ a: ['v', ' v'] }, 'a', 'github')).toBe('v');
-    for (const headers of [{ A: 'v', a: 'w' }, { a: ['v', 'w'] }]) {
-      expect(() => readHeader(headers, 'a', 'github')).toThrow(WebhookVerificationError);
-    }
-  });
-
-  it('rejects values that are not strings', () => {
-    for (const value of [1, true, {}, [1]]) {
-      expect(() => readHeader({ a: value as unknown as string }, 'a', 'github')).toThrow(TypeError);
-    }
-    expect(() => readHeader('a: b' as unknown as Headers, 'a', 'github')).toThrow(TypeError);
   });
 
   it('ignores null values that some frameworks produce', () => {
-    expect(readHeader({ a: null as unknown as string }, 'a', 'github')).toBeUndefined();
+    expect(readA({ a: null })).toBeUndefined();
   });
 
-  it('requireHeader names the header in the error', () => {
+  it('accepts duplicates that agree and rejects ones that differ', () => {
+    expect(readA({ A: 'v', a: 'v', 'a ': 'ignored' })).toBe('v');
+    expect(readA({ a: ['v', ' v'] })).toBe('v');
+    for (const headers of [{ A: 'v', a: 'w' }, { a: ['v', 'w'] }]) {
+      expect(() => readA(headers)).toThrow(WebhookVerificationError);
+    }
+  });
+
+  it('reports differing duplicates on lookup, not on capture', () => {
+    // malformed_header is a verification failure, so it must come after the
+    // secret check; only type errors are raised by the capture itself.
+    const captured = captureHeaders({ a: ['v', 'w'] }, ['a'], 'github');
     try {
-      requireHeader({}, 'x-signature', 'lemon-squeezy', 'X-Signature');
+      captured.get('a');
+      expect.unreachable();
+    } catch (error) {
+      expect(error).toMatchObject({
+        code: 'malformed_header',
+        header: 'a',
+        provider: 'github',
+        message: 'Header "a" was sent more than once with different values',
+      });
+    }
+  });
+
+  it('rejects values of captured headers that are not strings, on capture', () => {
+    for (const value of [1, true, {}, [1], ['v', 2], [['v']], () => 'v']) {
+      expect(() => captureHeaders({ A: value }, ['a'], 'github')).toThrow(
+        new TypeError('header "a" must be a string or an array of strings'),
+      );
+    }
+    const polyfill = { get: () => 42 };
+    expect(() => captureHeaders(polyfill, ['a'], 'github')).toThrow(TypeError);
+  });
+
+  it('never inspects headers that were not named', () => {
+    const captured = captureHeaders({ a: 'v', b: 1, c: [{}] }, ['a'], 'github');
+    expect(captured.get('a')).toBe('v');
+  });
+
+  it('getRequired returns the value, or names the header in the error', () => {
+    const captured = captureHeaders({ 'X-Signature': ' abc' }, ['x-signature'], 'lemon-squeezy');
+    expect(captured.getRequired('x-signature', 'X-Signature')).toBe('abc');
+    try {
+      captureHeaders({}, ['x-signature'], 'lemon-squeezy').getRequired(
+        'x-signature',
+        'X-Signature',
+      );
       expect.unreachable();
     } catch (error) {
       expect(error).toBeInstanceOf(WebhookVerificationError);

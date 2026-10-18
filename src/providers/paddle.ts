@@ -27,7 +27,6 @@ import type { Bytes } from '../internal/bytes.js';
 import { MAX_SIGNATURES_PER_HEADER, hmacSign, hmacVerifyAny } from '../internal/crypto.js';
 import { bytesToHex, hexToBytes } from '../internal/encoding.js';
 import { assertSignatureCount, malformedHeader, signatureMismatch } from '../internal/failures.js';
-import { requireHeader } from '../internal/headers.js';
 import { readVerifyInput } from '../internal/input.js';
 import { parseKeyValueList } from '../internal/parse.js';
 import { secretList } from '../internal/secrets.js';
@@ -121,8 +120,8 @@ function parseHeader(value: string): ParsedPaddleHeader {
  */
 export async function verifyPaddle(options: PaddleVerifyOptions): Promise<PaddleVerifyResult> {
   const window = resolveTolerance(options, DEFAULT_TOLERANCE_SECONDS, CLOCK_SKEW_ALLOWANCE_SECONDS);
-  const { payload, secrets } = readVerifyInput(options, PROVIDER);
-  const header = parseHeader(requireHeader(options.headers, HEADER, PROVIDER, 'Paddle-Signature'));
+  const { payload, secrets, headers } = readVerifyInput(options, PROVIDER, [HEADER]);
+  const header = parseHeader(headers.getRequired(HEADER, 'Paddle-Signature'));
 
   const message = concatBytes(utf8(`${header.timestampText}:`), payload);
   if (!(await hmacVerifyAny(secrets.map(utf8), message, header.signatures, 'SHA-256'))) {

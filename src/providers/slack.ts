@@ -16,7 +16,6 @@ import { concatBytes, payloadToBytes, utf8 } from '../internal/bytes.js';
 import { hmacSign, hmacVerifyAny } from '../internal/crypto.js';
 import { bytesToHex, hexToBytes } from '../internal/encoding.js';
 import { malformedHeader, signatureMismatch } from '../internal/failures.js';
-import { requireHeader } from '../internal/headers.js';
 import { readVerifyInput } from '../internal/input.js';
 import { firstSecret } from '../internal/secrets.js';
 import {
@@ -36,6 +35,7 @@ import type {
 const PROVIDER = 'slack';
 const SIGNATURE_HEADER = 'x-slack-signature';
 const TIMESTAMP_HEADER = 'x-slack-request-timestamp';
+const HEADERS = [TIMESTAMP_HEADER, SIGNATURE_HEADER] as const;
 const VERSION = 'v0';
 const DEFAULT_TOLERANCE_SECONDS = 300;
 
@@ -61,19 +61,9 @@ export interface SlackVerifyResult {
  */
 export async function verifySlack(options: SlackVerifyOptions): Promise<SlackVerifyResult> {
   const window = resolveTolerance(options, DEFAULT_TOLERANCE_SECONDS);
-  const { payload, secrets } = readVerifyInput(options, PROVIDER);
-  const timestampText = requireHeader(
-    options.headers,
-    TIMESTAMP_HEADER,
-    PROVIDER,
-    'X-Slack-Request-Timestamp',
-  );
-  const signatureText = requireHeader(
-    options.headers,
-    SIGNATURE_HEADER,
-    PROVIDER,
-    'X-Slack-Signature',
-  );
+  const { payload, secrets, headers } = readVerifyInput(options, PROVIDER, HEADERS);
+  const timestampText = headers.getRequired(TIMESTAMP_HEADER, 'X-Slack-Request-Timestamp');
+  const signatureText = headers.getRequired(SIGNATURE_HEADER, 'X-Slack-Signature');
 
   const timestamp = parseUnixSeconds(timestampText);
   if (timestamp === undefined) {

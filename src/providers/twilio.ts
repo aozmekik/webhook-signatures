@@ -30,7 +30,6 @@ import type { Bytes } from '../internal/bytes.js';
 import { hmacSign, hmacVerifyAny, sha256 } from '../internal/crypto.js';
 import { base64ToBytes, bytesToBase64, bytesToHex } from '../internal/encoding.js';
 import { malformedHeader, signatureMismatch } from '../internal/failures.js';
-import { requireHeader } from '../internal/headers.js';
 import { readVerifyInput } from '../internal/input.js';
 import { firstSecret } from '../internal/secrets.js';
 import type { SignOptions, SignedHeaders, VerifyOptions } from '../types.js';
@@ -228,11 +227,8 @@ function signedBodyHash(url: string, secrets: readonly string[]): string {
 export async function verifyTwilio(options: TwilioVerifyOptions): Promise<TwilioVerifyResult> {
   const scheme = resolveScheme(options.scheme);
   const urls = candidateUrls(splitUrl(options.url));
-  const { payload, secrets } = readVerifyInput(options, PROVIDER);
-  const signature = base64ToBytes(
-    requireHeader(options.headers, HEADER, PROVIDER, 'X-Twilio-Signature'),
-    20,
-  );
+  const { payload, secrets, headers } = readVerifyInput(options, PROVIDER, [HEADER]);
+  const signature = base64ToBytes(headers.getRequired(HEADER, 'X-Twilio-Signature'), 20);
   if (signature === undefined) {
     throw malformedHeader(PROVIDER, HEADER, 'X-Twilio-Signature is not a base64 HMAC-SHA1 digest');
   }

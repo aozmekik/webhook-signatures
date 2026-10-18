@@ -18,7 +18,6 @@ import type { Bytes } from '../internal/bytes.js';
 import { MAX_SIGNATURES_PER_HEADER, hmacSign, hmacVerifyAny } from '../internal/crypto.js';
 import { bytesToHex, hexToBytes } from '../internal/encoding.js';
 import { assertSignatureCount, malformedHeader, signatureMismatch } from '../internal/failures.js';
-import { requireHeader } from '../internal/headers.js';
 import { readVerifyInput } from '../internal/input.js';
 import { parseKeyValueList } from '../internal/parse.js';
 import { secretList } from '../internal/secrets.js';
@@ -115,8 +114,8 @@ function parseHeader(value: string): ParsedStripeHeader {
  */
 export async function verifyStripe(options: StripeVerifyOptions): Promise<StripeVerifyResult> {
   const window = resolveTolerance(options, DEFAULT_TOLERANCE_SECONDS);
-  const { payload, secrets } = readVerifyInput(options, PROVIDER);
-  const header = parseHeader(requireHeader(options.headers, HEADER, PROVIDER, 'Stripe-Signature'));
+  const { payload, secrets, headers } = readVerifyInput(options, PROVIDER, [HEADER]);
+  const header = parseHeader(headers.getRequired(HEADER, 'Stripe-Signature'));
 
   const message = concatBytes(utf8(`${header.timestampText}.`), payload);
   const valid = await hmacVerifyAny(secrets.map(utf8), message, header.signatures, 'SHA-256');

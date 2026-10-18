@@ -15,7 +15,6 @@ import { payloadToBytes, utf8 } from '../internal/bytes.js';
 import { hmacSign, hmacVerifyAny } from '../internal/crypto.js';
 import { bytesToHex, hexToBytes } from '../internal/encoding.js';
 import { malformedHeader, signatureMismatch } from '../internal/failures.js';
-import { readHeader } from '../internal/headers.js';
 import { readVerifyInput } from '../internal/input.js';
 import { firstSecret } from '../internal/secrets.js';
 import { WebhookVerificationError } from '../errors.js';
@@ -24,6 +23,9 @@ import type { SignOptions, SignedHeaders, VerifyOptions } from '../types.js';
 const PROVIDER = 'github';
 const HEADER = 'x-hub-signature-256';
 const LEGACY_HEADER = 'x-hub-signature';
+const DELIVERY_HEADER = 'x-github-delivery';
+const EVENT_HEADER = 'x-github-event';
+const HEADERS = [HEADER, LEGACY_HEADER, DELIVERY_HEADER, EVENT_HEADER] as const;
 const PREFIX = 'sha256=';
 
 /** Options for {@link verifyGitHub}. `secret` is the webhook's secret token. */
@@ -58,10 +60,10 @@ export interface GitHubVerifyResult {
  * @throws {@link WebhookVerificationError} when verification fails.
  */
 export async function verifyGitHub(options: GitHubVerifyOptions): Promise<GitHubVerifyResult> {
-  const { payload, secrets } = readVerifyInput(options, PROVIDER);
-  const value = readHeader(options.headers, HEADER, PROVIDER);
+  const { payload, secrets, headers } = readVerifyInput(options, PROVIDER, HEADERS);
+  const value = headers.get(HEADER);
   if (value === undefined) {
-    const legacyOnly = readHeader(options.headers, LEGACY_HEADER, PROVIDER) !== undefined;
+    const legacyOnly = headers.get(LEGACY_HEADER) !== undefined;
     throw new WebhookVerificationError(
       'missing_header',
       legacyOnly
@@ -85,8 +87,8 @@ export async function verifyGitHub(options: GitHubVerifyOptions): Promise<GitHub
   }
   return {
     provider: PROVIDER,
-    deliveryId: readHeader(options.headers, 'x-github-delivery', PROVIDER),
-    event: readHeader(options.headers, 'x-github-event', PROVIDER),
+    deliveryId: headers.get(DELIVERY_HEADER),
+    event: headers.get(EVENT_HEADER),
   };
 }
 

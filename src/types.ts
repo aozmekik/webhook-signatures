@@ -25,6 +25,10 @@ export type WebhookPayload = string | Uint8Array | ArrayBuffer;
 /**
  * Request headers: either a Fetch API `Headers` object or a plain record such
  * as Node.js `IncomingHttpHeaders`. Header names are matched case-insensitively.
+ *
+ * In a record, `undefined` (and `null`) mean "absent". From JavaScript, any
+ * other non-string value in a header the verifier reads is rejected with a
+ * `TypeError` before the secret is checked; other headers are not inspected.
  */
 export type HeadersInput =
   Headers | Readonly<Record<string, string | readonly string[] | undefined>>;

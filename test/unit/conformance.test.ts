@@ -5,6 +5,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { NOW, expectCode, shift, tamper, withHeader } from '../support/assertions.js';
 import { providerCases } from '../support/providers.js';
+import type { HeadersInput } from 'webhook-signatures';
 
 describe.each(providerCases)('$id', (provider) => {
   const { secret, otherSecret, samplePayload: payload } = provider;
@@ -254,6 +255,29 @@ describe.each(providerCases)('$id', (provider) => {
     await expect(
       provider.verify({ payload, headers: 'x' as unknown as Headers, secret: '', now: NOW }),
     ).rejects.toThrow(TypeError);
+  });
+
+  it('reports a header value that is not a string before an unusable secret', async () => {
+    // JavaScript callers only: HeadersInput rules these values out in TypeScript.
+    const signed = await sign();
+    for (const name of provider.readHeaders) {
+      for (const value of [123, [1], [signed[name] ?? 'v', 2]]) {
+        const headers = { ...signed, [name]: value } as unknown as HeadersInput;
+        for (const candidate of [secret, '', []]) {
+          await expect(
+            provider.verify({ payload, headers, secret: candidate, now: NOW }),
+            `${name}: ${JSON.stringify(value)} with secret ${JSON.stringify(candidate)}`,
+          ).rejects.toThrow(
+            new TypeError(`header "${name}" must be a string or an array of strings`),
+          );
+        }
+      }
+    }
+  });
+
+  it('ignores the values of headers it does not read', async () => {
+    const headers = { ...(await sign()), 'x-unrelated': 5 } as unknown as HeadersInput;
+    await expect(provider.verify({ payload, headers, secret, now: NOW })).resolves.toBeDefined();
   });
 
   const { timestamp } = provider;

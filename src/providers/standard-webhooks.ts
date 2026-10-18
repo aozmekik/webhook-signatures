@@ -26,7 +26,7 @@ import type { Bytes } from '../internal/bytes.js';
 import { MAX_SIGNATURES_PER_HEADER, hmacSign, hmacVerifyAny } from '../internal/crypto.js';
 import { base64ToBytes, bytesToBase64 } from '../internal/encoding.js';
 import { assertSignatureCount, malformedHeader, signatureMismatch } from '../internal/failures.js';
-import { readHeader, requireHeader } from '../internal/headers.js';
+import type { CapturedHeaders } from '../internal/headers.js';
 import { readVerifyInput } from '../internal/input.js';
 import { invalidSecret, secretList } from '../internal/secrets.js';
 import {
@@ -36,7 +36,6 @@ import {
   toUnixSeconds,
 } from '../internal/timestamp.js';
 import type {
-  HeadersInput,
   SignOptions,
   SignTimestampOptions,
   SignedHeaders,
@@ -47,6 +46,16 @@ import type {
 const PROVIDER = 'standard-webhooks';
 const SECRET_PREFIX = 'whsec_';
 const DEFAULT_TOLERANCE_SECONDS = 300;
+const HEADERS = [
+  'webhook-id',
+  'webhook-timestamp',
+  'webhook-signature',
+  'svix-id',
+  'svix-timestamp',
+  'svix-signature',
+] as const;
+
+type HeaderName = (typeof HEADERS)[number];
 
 /** Options for {@link verifyStandardWebhook}. `secret` is the endpoint's `whsec_...` secret. */
 export interface StandardWebhookVerifyOptions extends VerifyOptions, TimestampToleranceOptions {}
@@ -72,14 +81,13 @@ function decodeSecret(secret: string): Bytes {
   return key;
 }
 
-function headerNames(headers: HeadersInput): {
-  readonly id: string;
-  readonly timestamp: string;
-  readonly signature: string;
+function headerNames(headers: CapturedHeaders<HeaderName>): {
+  readonly id: HeaderName;
+  readonly timestamp: HeaderName;
+  readonly signature: HeaderName;
 } {
-  const prefix =
-    readHeader(headers, 'webhook-signature', PROVIDER) === undefined &&
-    readHeader(headers, 'svix-signature', PROVIDER) !== undefined
+  const prefix: StandardWebhookHeaderPrefix =
+    headers.get('webhook-signature') === undefined && headers.get('svix-signature') !== undefined
       ? 'svix'
       : 'webhook';
   return {
@@ -140,13 +148,13 @@ export async function verifyStandardWebhook(
   options: StandardWebhookVerifyOptions,
 ): Promise<StandardWebhookVerifyResult> {
   const window = resolveTolerance(options, DEFAULT_TOLERANCE_SECONDS);
-  const { payload, secrets } = readVerifyInput(options, PROVIDER);
+  const { payload, secrets, headers } = readVerifyInput(options, PROVIDER, HEADERS);
   const keys = secrets.map(decodeSecret);
-  const names = headerNames(options.headers);
-  const id = requireHeader(options.headers, names.id, PROVIDER, names.id);
-  const timestampText = requireHeader(options.headers, names.timestamp, PROVIDER, names.timestamp);
+  const names = headerNames(headers);
+  const id = headers.getRequired(names.id, names.id);
+  const timestampText = headers.getRequired(names.timestamp, names.timestamp);
   const signatures = parseSignatures(
-    requireHeader(options.headers, names.signature, PROVIDER, names.signature),
+    headers.getRequired(names.signature, names.signature),
     names.signature,
   );
   const timestamp = parseUnixSeconds(timestampText);

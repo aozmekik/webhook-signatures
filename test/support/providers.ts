@@ -45,6 +45,12 @@ export interface ProviderCase {
   readonly id: ProviderId;
   /** Header that carries the signature. */
   readonly signatureHeader: string;
+  /**
+   * Every header the verifier reads, signed or not. Their values are all
+   * type-checked before the secret, so a non-string value in any of them is a
+   * TypeError even when the secret is also unusable.
+   */
+  readonly readHeaders: readonly string[];
   /** Present for schemes that sign a timestamp. */
   readonly timestamp?: {
     readonly header: string;
@@ -74,6 +80,7 @@ export const providerCases: readonly ProviderCase[] = [
   {
     id: 'stripe',
     signatureHeader: 'stripe-signature',
+    readHeaders: ['stripe-signature'],
     timestamp: {
       header: 'stripe-signature',
       defaultToleranceSeconds: 300,
@@ -89,6 +96,7 @@ export const providerCases: readonly ProviderCase[] = [
   {
     id: 'github',
     signatureHeader: 'x-hub-signature-256',
+    readHeaders: ['x-hub-signature-256', 'x-hub-signature', 'x-github-delivery', 'x-github-event'],
     multiSignature: false,
     secret: "It's a Secret to Everybody",
     otherSecret: 'another-github-secret',
@@ -103,6 +111,7 @@ export const providerCases: readonly ProviderCase[] = [
   {
     id: 'slack',
     signatureHeader: 'x-slack-signature',
+    readHeaders: ['x-slack-request-timestamp', 'x-slack-signature'],
     timestamp: {
       header: 'x-slack-request-timestamp',
       defaultToleranceSeconds: 300,
@@ -118,6 +127,7 @@ export const providerCases: readonly ProviderCase[] = [
   {
     id: 'shopify',
     signatureHeader: 'x-shopify-hmac-sha256',
+    readHeaders: ['x-shopify-hmac-sha256', 'x-shopify-webhook-id', 'x-shopify-topic'],
     multiSignature: false,
     secret: 'shpss_client_secret_for_tests',
     otherSecret: 'shpss_rotated_client_secret',
@@ -128,6 +138,14 @@ export const providerCases: readonly ProviderCase[] = [
   {
     id: 'standard-webhooks',
     signatureHeader: 'webhook-signature',
+    readHeaders: [
+      'webhook-id',
+      'webhook-timestamp',
+      'webhook-signature',
+      'svix-id',
+      'svix-timestamp',
+      'svix-signature',
+    ],
     timestamp: {
       header: 'webhook-timestamp',
       defaultToleranceSeconds: 300,
@@ -143,6 +161,7 @@ export const providerCases: readonly ProviderCase[] = [
   {
     id: 'twilio',
     signatureHeader: 'x-twilio-signature',
+    readHeaders: ['x-twilio-signature'],
     multiSignature: false,
     secret: '12345abcdef12345abcdef12345abcde',
     otherSecret: 'fedcba54321fedcba54321fedcba5432',
@@ -153,6 +172,7 @@ export const providerCases: readonly ProviderCase[] = [
   {
     id: 'paddle',
     signatureHeader: 'paddle-signature',
+    readHeaders: ['paddle-signature'],
     timestamp: { header: 'paddle-signature', defaultToleranceSeconds: 5, defaultFutureSeconds: 60 },
     multiSignature: true,
     secret: 'pdl_ntfset_01gkpjp8bkm3tm53kdgkx6sms7_6h3qd3uFSi9YCD3OLYAShQI90XTI5vEI',
@@ -164,6 +184,7 @@ export const providerCases: readonly ProviderCase[] = [
   {
     id: 'lemon-squeezy',
     signatureHeader: 'x-signature',
+    readHeaders: ['x-signature', 'x-event-name'],
     multiSignature: false,
     secret: 'lemon-signing-secret',
     otherSecret: 'lemon-rotated-secret',
