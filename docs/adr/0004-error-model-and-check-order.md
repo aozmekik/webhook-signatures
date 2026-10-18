@@ -28,9 +28,11 @@ the verifier reads, and the payload), then secrets (`invalid_secret`), then
 header contents (`missing_header`, `malformed_header`), then the HMAC
 (`signature_mismatch`), then the clock (`timestamp_out_of_tolerance`).
 
-Every verifier gets the type and secret steps from one shared function. It
-takes the names of all the headers the verifier will read, type-checks their
-values before it looks at the secret, and returns the only way to read them,
+Each verifier validates its own options (tolerance, clock, Twilio URL) and
+then gets the remaining type checks and the secret step from one shared
+function. That function takes the names of all the headers the verifier will
+read, type-checks their values before it looks at the secret, and returns the
+only way to read them,
 typed to those names, so a verifier cannot read a header that was not checked
 up front. The values of other headers are never inspected, so an unrelated
 non-string value does not block verification. Content errors such as
