@@ -11,6 +11,11 @@
  * - Paddle's SDKs reject events whose timestamp is more than **5 seconds**
  *   old, and the docs use the same value. This library follows that default;
  *   raise `toleranceSeconds` if your clock or queueing needs more room.
+ * - Paddle's SDKs and docs do not check the other direction at all. To stay
+ *   close to them without accepting arbitrarily future timestamps, a
+ *   timestamp may be up to `max(toleranceSeconds, 60)` seconds ahead of
+ *   `now`, so a receiver whose clock runs behind Paddle's still accepts
+ *   genuine events.
  *
  * Paddle Classic (`p_signature`, RSA) is a different scheme and is not
  * supported.
@@ -43,6 +48,14 @@ import type {
 const PROVIDER = 'paddle';
 const HEADER = 'paddle-signature';
 const DEFAULT_TOLERANCE_SECONDS = 5;
+/**
+ * Minimum room for timestamps ahead of `now`. A symmetric 5 second window
+ * would reject every genuine event on a receiver whose clock is more than
+ * 5 seconds behind Paddle's, which the official SDK accepts. One minute
+ * covers ordinary drift while still bounding how long a request signed
+ * "in the future" stays replayable.
+ */
+const CLOCK_SKEW_ALLOWANCE_SECONDS = 60;
 
 /** Options for {@link verifyPaddle}. `secret` is the destination's `pdl_ntfset_...` key. */
 export interface PaddleVerifyOptions extends VerifyOptions, TimestampToleranceOptions {}
@@ -98,14 +111,16 @@ function parseHeader(value: string): ParsedPaddleHeader {
 /**
  * Verifies a Paddle Billing webhook (`Paddle-Signature` header).
  *
- * The default tolerance is Paddle's own 5 seconds. Verify as soon as the
- * request arrives (before queueing it), or pass a larger `toleranceSeconds`.
+ * The default tolerance is Paddle's own 5 seconds for old timestamps. Verify
+ * as soon as the request arrives (before queueing it), or pass a larger
+ * `toleranceSeconds`. Timestamps ahead of `now` are accepted up to
+ * `max(toleranceSeconds, 60)` seconds, to absorb clock skew.
  *
  * @see https://developer.paddle.com/webhooks/signature-verification
  * @throws {@link WebhookVerificationError} when verification fails.
  */
 export async function verifyPaddle(options: PaddleVerifyOptions): Promise<PaddleVerifyResult> {
-  const window = resolveTolerance(options, DEFAULT_TOLERANCE_SECONDS);
+  const window = resolveTolerance(options, DEFAULT_TOLERANCE_SECONDS, CLOCK_SKEW_ALLOWANCE_SECONDS);
   const { payload, secrets } = readVerifyInput(options, PROVIDER);
   const header = parseHeader(requireHeader(options.headers, HEADER, PROVIDER, 'Paddle-Signature'));
 

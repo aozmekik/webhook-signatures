@@ -269,10 +269,11 @@ describe.each(providerCases)('$id', (provider) => {
 
   describe('replay window', () => {
     const tolerance = timestamp.defaultToleranceSeconds;
+    const future = timestamp.defaultFutureSeconds;
 
-    it(`defaults to ${tolerance}s, inclusive, in both directions`, async () => {
+    it(`defaults to ${tolerance}s old and ${future}s ahead, inclusive`, async () => {
       const headers = await sign();
-      for (const offset of [0, tolerance, -tolerance, tolerance - 0.5]) {
+      for (const offset of [0, tolerance, -future, tolerance - 0.5, 0.5 - future]) {
         await expect(
           provider.verify({ payload, headers, secret, now: shift(NOW, offset) }),
         ).resolves.toMatchObject({ timestamp: NOW });
@@ -292,10 +293,19 @@ describe.each(providerCases)('$id', (provider) => {
     it('rejects timestamps from the future', async () => {
       const headers = await sign();
       const error = await expectCode(
-        provider.verify({ payload, headers, secret, now: shift(NOW, -(tolerance + 1)) }),
+        provider.verify({ payload, headers, secret, now: shift(NOW, -(future + 1)) }),
         'timestamp_out_of_tolerance',
       );
       expect(error.message).toContain('future');
+    });
+
+    it('reports sub-second skew precisely', async () => {
+      const headers = await sign();
+      const error = await expectCode(
+        provider.verify({ payload, headers, secret, now: shift(NOW, 0.4), toleranceSeconds: 0 }),
+        'timestamp_out_of_tolerance',
+      );
+      expect(error.message).toBe('Signed timestamp is too old: 0.4s ago, tolerance is 0s');
     });
 
     it('honours a custom tolerance, including zero and Infinity', async () => {

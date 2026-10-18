@@ -48,14 +48,18 @@ export interface VerifyOptions {
 /**
  * Replay-window options for schemes that sign a timestamp.
  *
- * The check is symmetric: a timestamp too far in the past or in the future is
- * rejected with `timestamp_out_of_tolerance`.
+ * A signed timestamp too far in the past, or too far in the future, is
+ * rejected with `timestamp_out_of_tolerance`. Rejecting future timestamps
+ * bounds how long a request stays replayable when the provider's clock runs
+ * ahead of yours.
  */
 export interface TimestampToleranceOptions {
   /**
    * Maximum allowed difference, in seconds, between the signed timestamp and
-   * `now`. Defaults to the provider's documented value. `Infinity` disables the
-   * check; this is never recommended outside tests.
+   * `now`, in either direction. Defaults to the provider's documented value.
+   * `Infinity` disables the check; this is never recommended outside tests.
+   * Paddle, whose default is only 5 seconds, allows at least 60 seconds in the
+   * future direction; see {@link verifyPaddle}.
    */
   readonly toleranceSeconds?: number | undefined;
   /** Clock used for the tolerance check. Defaults to `new Date()`. */

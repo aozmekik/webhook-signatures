@@ -46,7 +46,13 @@ export interface ProviderCase {
   /** Header that carries the signature. */
   readonly signatureHeader: string;
   /** Present for schemes that sign a timestamp. */
-  readonly timestamp?: { readonly header: string; readonly defaultToleranceSeconds: number };
+  readonly timestamp?: {
+    readonly header: string;
+    /** How old a timestamp may be by default. */
+    readonly defaultToleranceSeconds: number;
+    /** How far ahead of `now` a timestamp may be by default. */
+    readonly defaultFutureSeconds: number;
+  };
   /** Whether signing with a list of secrets emits one signature per secret. */
   readonly multiSignature: boolean;
   /** A realistic secret and a different, equally valid one. */
@@ -68,7 +74,11 @@ export const providerCases: readonly ProviderCase[] = [
   {
     id: 'stripe',
     signatureHeader: 'stripe-signature',
-    timestamp: { header: 'stripe-signature', defaultToleranceSeconds: 300 },
+    timestamp: {
+      header: 'stripe-signature',
+      defaultToleranceSeconds: 300,
+      defaultFutureSeconds: 300,
+    },
     multiSignature: true,
     secret: 'whsec_test_5WbX5kEWLlfzsGNjH64I8lOOqUB6e8FH',
     otherSecret: 'whsec_test_rotated_0123456789abcdef',
@@ -93,7 +103,11 @@ export const providerCases: readonly ProviderCase[] = [
   {
     id: 'slack',
     signatureHeader: 'x-slack-signature',
-    timestamp: { header: 'x-slack-request-timestamp', defaultToleranceSeconds: 300 },
+    timestamp: {
+      header: 'x-slack-request-timestamp',
+      defaultToleranceSeconds: 300,
+      defaultFutureSeconds: 300,
+    },
     multiSignature: false,
     secret: '8f742231b10e8888abcd99yyyzzz85a5',
     otherSecret: '00000000000000000000000000000000',
@@ -114,7 +128,11 @@ export const providerCases: readonly ProviderCase[] = [
   {
     id: 'standard-webhooks',
     signatureHeader: 'webhook-signature',
-    timestamp: { header: 'webhook-timestamp', defaultToleranceSeconds: 300 },
+    timestamp: {
+      header: 'webhook-timestamp',
+      defaultToleranceSeconds: 300,
+      defaultFutureSeconds: 300,
+    },
     multiSignature: true,
     secret: 'whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw',
     otherSecret: 'whsec_plJ3nmyCDGBKInavdOK15jsl',
@@ -135,7 +153,7 @@ export const providerCases: readonly ProviderCase[] = [
   {
     id: 'paddle',
     signatureHeader: 'paddle-signature',
-    timestamp: { header: 'paddle-signature', defaultToleranceSeconds: 5 },
+    timestamp: { header: 'paddle-signature', defaultToleranceSeconds: 5, defaultFutureSeconds: 60 },
     multiSignature: true,
     secret: 'pdl_ntfset_01gkpjp8bkm3tm53kdgkx6sms7_6h3qd3uFSi9YCD3OLYAShQI90XTI5vEI',
     otherSecret: 'pdl_ntfset_01gkpjp8bkm3tm53kdgkx6sms7_rotatedrotatedrotated',

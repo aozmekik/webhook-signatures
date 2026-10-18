@@ -593,6 +593,22 @@ describe('Paddle', () => {
     ).resolves.toEqual({ provider: 'paddle', timestamp: NOW });
   });
 
+  it('allows 60 seconds of clock skew ahead of now, more with a larger tolerance', async () => {
+    // Paddle's SDK and docs only reject old timestamps; a receiver whose clock
+    // is behind Paddle's sees genuine events "from the future".
+    const headers = await signPaddle({ payload, secret, timestamp: NOW });
+    const at = (seconds: number, toleranceSeconds?: number) =>
+      verifyPaddle({ payload, headers, secret, now: shift(NOW, seconds), toleranceSeconds });
+    await expect(at(-60)).resolves.toBeDefined();
+    await expect(at(-60, 0)).resolves.toBeDefined();
+    const error = await expectCode(at(-61), 'timestamp_out_of_tolerance');
+    expect(error.message).toBe(
+      'Signed timestamp is too far in the future: 61s ahead of now, tolerance is 60s',
+    );
+    await expect(at(-120, 120)).resolves.toBeDefined();
+    await expectCode(at(-121, 120), 'timestamp_out_of_tolerance');
+  });
+
   it('formats the header like Paddle: ts first, then one h1 per secret', async () => {
     const headers = await signPaddle({ payload, secret: ['a', 'b'], timestamp: NOW });
     expect(headers['paddle-signature']).toMatch(/^ts=\d+;h1=[0-9a-f]{64};h1=[0-9a-f]{64}$/);

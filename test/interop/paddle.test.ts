@@ -69,6 +69,15 @@ describe('@paddle/paddle-node-sdk interop', () => {
     );
   });
 
+  it('both accept a timestamp a few seconds ahead (receiver clock behind Paddle)', async () => {
+    const signature =
+      (await signPaddle({ payload, secret, timestamp: shift(NOW, 6) }))['paddle-signature'] ?? '';
+    expect(await paddle.webhooks.isSignatureValid(payload, secret, signature)).toBe(true);
+    await expect(
+      verifyPaddle({ payload, headers: { 'paddle-signature': signature }, secret }),
+    ).resolves.toBeDefined();
+  });
+
   it('both enforce the 5 second window', async () => {
     const signature =
       (await signPaddle({ payload, secret, timestamp: shift(NOW, -6) }))['paddle-signature'] ?? '';
