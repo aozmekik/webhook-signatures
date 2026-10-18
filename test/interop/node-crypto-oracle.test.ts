@@ -157,7 +157,13 @@ describe('node:crypto oracle', () => {
           scheme: 'body-sha256',
         });
         expect(signed).toEqual({ url, headers: { 'x-twilio-signature': expected } });
-        await verifyTwilio({ payload, headers: signed.headers, secret: token, url });
+        await verifyTwilio({
+          payload,
+          headers: signed.headers,
+          secret: token,
+          url,
+          scheme: 'body-sha256',
+        });
       }),
     );
   });

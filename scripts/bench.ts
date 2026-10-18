@@ -77,7 +77,14 @@ async function cases(size: number): Promise<Case[]> {
     ],
     [
       'verifyTwilio (bodySHA256)',
-      () => lib.verifyTwilio({ payload, headers: twilio.headers, secret, url: twilio.url }),
+      () =>
+        lib.verifyTwilio({
+          payload,
+          headers: twilio.headers,
+          secret,
+          url: twilio.url,
+          scheme: 'body-sha256',
+        }),
     ],
     ['verifyPaddle', () => lib.verifyPaddle({ payload, headers: paddle, secret, now })],
     ['verifyLemonSqueezy', () => lib.verifyLemonSqueezy({ payload, headers: lemon, secret })],

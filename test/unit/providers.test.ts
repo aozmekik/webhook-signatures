@@ -348,18 +348,33 @@ describe('Twilio', () => {
 
   describe('JSON bodies (bodySHA256)', () => {
     const body = JSON.stringify({ CallSid: 'CA123', Caller: '+12349013030' });
+    const json = { scheme: 'body-sha256' } as const;
 
     it('verifies the URL signature and the body hash', async () => {
       const signed = await signTwilio({
         payload: body,
         secret,
         url: 'https://example.com/json?x=1',
-        scheme: 'body-sha256',
+        ...json,
       });
       expect(signed.url).toMatch(/^https:\/\/example\.com\/json\?x=1&bodySHA256=[0-9a-f]{64}$/);
       await expect(
-        verifyTwilio({ payload: body, headers: signed.headers, secret, url: signed.url }),
+        verifyTwilio({ payload: body, headers: signed.headers, secret, url: signed.url, ...json }),
       ).resolves.toEqual({ provider: 'twilio', scheme: 'body-sha256' });
+    });
+
+    it('is not inferred from the URL: the default scheme is form-params', async () => {
+      const signed = await signTwilio({
+        payload: body,
+        secret,
+        url: 'https://example.com/json',
+        ...json,
+      });
+      const error = await expectCode(
+        verifyTwilio({ payload: body, headers: signed.headers, secret, url: signed.url }),
+        'signature_mismatch',
+      );
+      expect(error.message).toContain('pass scheme "body-sha256"');
     });
 
     it('accepts an upper-case body hash in the URL', async () => {
@@ -367,7 +382,7 @@ describe('Twilio', () => {
         payload: body,
         secret,
         url: 'https://example.com/json',
-        scheme: 'body-sha256',
+        ...json,
       });
       const upperUrl = signed.url.replace(
         /=([0-9a-f]+)$/,
@@ -375,7 +390,7 @@ describe('Twilio', () => {
       );
       const resigned = await signTwilio({ payload: '', secret, url: upperUrl });
       await expect(
-        verifyTwilio({ payload: body, headers: resigned.headers, secret, url: upperUrl }),
+        verifyTwilio({ payload: body, headers: resigned.headers, secret, url: upperUrl, ...json }),
       ).resolves.toBeDefined();
     });
 
@@ -384,10 +399,16 @@ describe('Twilio', () => {
         payload: body,
         secret,
         url: 'https://example.com/json',
-        scheme: 'body-sha256',
+        ...json,
       });
       const error = await expectCode(
-        verifyTwilio({ payload: `${body} `, headers: signed.headers, secret, url: signed.url }),
+        verifyTwilio({
+          payload: `${body} `,
+          headers: signed.headers,
+          secret,
+          url: signed.url,
+          ...json,
+        }),
         'signature_mismatch',
       );
       expect(error.message).toContain('bodySHA256');
@@ -399,13 +420,140 @@ describe('Twilio', () => {
         payload: body,
         secret: 'attacker',
         url: 'https://example.com/json',
-        scheme: 'body-sha256',
+        ...json,
       });
       await expectCode(
-        verifyTwilio({ payload: body, headers: signed.headers, secret, url: forged.url }),
+        verifyTwilio({ payload: body, headers: signed.headers, secret, url: forged.url, ...json }),
         'signature_mismatch',
       );
     });
+
+    it('requires the URL to end with exactly one bodySHA256 and no fragment', async () => {
+      const hash = 'ab'.repeat(32);
+      for (const url of [
+        'https://example.com/json',
+        'https://example.com/json?x=1',
+        `https://example.com/json?bodySHA256=${hash}&x=1`,
+        `https://example.com/json?bodySHA256=${hash}&bodySHA256=${hash}`,
+        `https://example.com/json?bodySHA256=${hash}#f`,
+      ]) {
+        // Signed with the right token, so only the URL shape can fail.
+        const { headers } = await signTwilio({ payload: '', secret, url });
+        const error = await expectCode(
+          verifyTwilio({ payload: body, headers, secret, url, ...json }),
+          'signature_mismatch',
+        );
+        expect(error.message).toContain('must end with the single bodySHA256');
+      }
+    });
+
+    it('rejects a form-params signature re-assembled into a JSON request (scheme confusion)', async () => {
+      // Regression test for a reported forgery. An attacker gets Twilio to
+      // sign a form webhook whose Body (an SMS text) plants a bodySHA256 for
+      // a JSON body of their choosing, captures the signature, and re-reads
+      // the signed string "URL + name + value + ..." as one longer URL.
+      const configured = 'https://example.com/sms?tenant=acme';
+      const attackerBody = JSON.stringify({ Body: 'forged', From: '+15550000000' });
+      const hash = [
+        ...new Uint8Array(
+          await crypto.subtle.digest('SHA-256', new TextEncoder().encode(attackerBody)),
+        ),
+      ]
+        .map((b) => b.toString(16).padStart(2, '0'))
+        .join('');
+      const captured = await signTwilio({
+        payload: new URLSearchParams({
+          AccountSid: 'AC123',
+          Body: `&bodySHA256=${hash}&x=`,
+          From: '+15551234567',
+        }).toString(),
+        secret,
+        url: configured,
+      });
+      const forgedUrl = `${configured}AccountSidAC123Body&bodySHA256=${hash}&x=From+15551234567`;
+      const forged = { payload: attackerBody, headers: captured.headers, secret, url: forgedUrl };
+      await expectCode(verifyTwilio(forged), 'signature_mismatch');
+      await expectCode(verifyTwilio({ ...forged, scheme: 'form-params' }), 'signature_mismatch');
+      await expectCode(verifyTwilio({ ...forged, ...json }), 'signature_mismatch');
+      // Ending the planted value with "#" to hide the rest in a fragment fails too.
+      const hidden = await signTwilio({
+        payload: new URLSearchParams({
+          AccountSid: 'AC123',
+          Body: `&bodySHA256=${hash}#`,
+          To: '+1',
+        }).toString(),
+        secret,
+        url: configured,
+      });
+      await expectCode(
+        verifyTwilio({
+          payload: attackerBody,
+          headers: hidden.headers,
+          secret,
+          url: `${configured}AccountSidAC123Body&bodySHA256=${hash}#To+1`,
+          ...json,
+        }),
+        'signature_mismatch',
+      );
+    });
+
+    it('signTwilio refuses a #fragment, which a request URL never carries', async () => {
+      await expect(
+        signTwilio({ payload: body, secret, url: 'https://example.com/h#f', ...json }),
+      ).rejects.toThrow(/fragment/);
+    });
+  });
+
+  it('documents a protocol property: the signature covers the concatenation, not the split', async () => {
+    // Twilio joins names and values without delimiters and drops repeated
+    // values, so re-splitting the same characters into other parameters, or
+    // repeating one, still verifies. Handlers must validate the parameters
+    // they read (see the README section on Twilio).
+    const url = 'https://example.com/sms';
+    const signed = await signTwilio({ payload: 'Body=hi&From=%2B1555&To=%2B1666', secret, url });
+    for (const payload of [
+      'Body=hiFrom%2B1555&To=%2B1666',
+      'Bo=dyhi&From=%2B1555&To=%2B1666',
+      'Body=hi&Body=hi&From=%2B1555&To=%2B1666',
+    ]) {
+      await expect(
+        verifyTwilio({ payload, headers: signed.headers, secret, url }),
+      ).resolves.toBeDefined();
+    }
+  });
+
+  it('signs without URL credentials, as Twilio does, but returns the URL with them', async () => {
+    const url = 'https://user:pass@example.com/sms';
+    const signed = await signTwilio({ payload: form, secret, url });
+    expect(signed.url).toBe(url);
+    expect(signed.headers).toEqual(
+      (await signTwilio({ payload: form, secret, url: 'https://example.com/sms' })).headers,
+    );
+    for (const verifyUrl of [url, 'https://example.com/sms']) {
+      await expect(
+        verifyTwilio({ payload: form, headers: signed.headers, secret, url: verifyUrl }),
+      ).resolves.toBeDefined();
+    }
+    const json = await signTwilio({ payload: '{}', secret, url, scheme: 'body-sha256' });
+    await expect(
+      verifyTwilio({
+        payload: '{}',
+        headers: json.headers,
+        secret,
+        url: json.url,
+        scheme: 'body-sha256',
+      }),
+    ).resolves.toBeDefined();
+  });
+
+  it('rejects an unknown scheme with a TypeError', async () => {
+    const scheme = 'json' as unknown as 'body-sha256';
+    await expect(
+      verifyTwilio({ payload: form, headers: {}, secret, url: 'https://example.com/', scheme }),
+    ).rejects.toThrow(TypeError);
+    await expect(
+      signTwilio({ payload: form, secret, url: 'https://example.com/', scheme }),
+    ).rejects.toThrow(TypeError);
   });
 
   it('rejects URLs that are not absolute http(s) URLs', async () => {

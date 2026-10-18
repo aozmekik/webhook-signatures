@@ -41,7 +41,7 @@ export type {
 export { verifyStripe } from './providers/stripe.js';
 export type { StripeVerifyOptions, StripeVerifyResult } from './providers/stripe.js';
 export { verifyTwilio } from './providers/twilio.js';
-export type { TwilioVerifyOptions, TwilioVerifyResult } from './providers/twilio.js';
+export type { TwilioScheme, TwilioVerifyOptions, TwilioVerifyResult } from './providers/twilio.js';
 
 export { verifyWebhook } from './verify-webhook.js';
 export type {

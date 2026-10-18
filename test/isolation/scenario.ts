@@ -93,7 +93,7 @@ const cases: readonly Case[] = [
     verify: async (payload, headers, secret) => {
       const original = new TextEncoder().encode(ORIGINAL);
       const url = `${URL_BASE}?bodySHA256=${await bodyHash(original)}`;
-      return verifyTwilio({ payload, headers, secret, url });
+      return verifyTwilio({ payload, headers, secret, url, scheme: 'body-sha256' });
     },
   },
   {

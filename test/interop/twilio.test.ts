@@ -111,6 +111,7 @@ describe('twilio-node interop', () => {
           headers: { 'x-twilio-signature': signature },
           secret: authToken,
           url,
+          scheme: 'body-sha256',
         }),
       ).resolves.toEqual({ provider: 'twilio', scheme: 'body-sha256' });
     });
@@ -126,6 +127,7 @@ describe('twilio-node interop', () => {
           headers: { 'x-twilio-signature': signature },
           secret: authToken,
           url,
+          scheme: 'body-sha256',
         }),
         'signature_mismatch',
       );
