@@ -9,7 +9,9 @@ Please report vulnerabilities **privately** through GitHub's security
 advisories:
 [github.com/aozmekik/webhook-signatures/security/advisories/new](https://github.com/aozmekik/webhook-signatures/security/advisories/new).
 
-Do not open a public issue for a suspected vulnerability. Include, if you can:
+Do not open a public issue for a suspected vulnerability. If the advisory form
+is unavailable, open an issue that only asks for a private contact, without
+details. Include, if you can:
 
 - the provider and the function involved;
 - a minimal payload, header set and secret that reproduce the problem (use
@@ -31,5 +33,7 @@ reject, timing side channels in comparisons, crashes or unbounded work caused
 by crafted headers or bodies, and documentation that leads to insecure use.
 
 Out of scope: weaknesses in a provider's own signing scheme (for example, that
-GitHub signs no timestamp), and applications that do not store message ids for
-replay protection (see the README).
+GitHub signs no timestamp, or that Twilio concatenates parameters without
+delimiters), and applications that do not store message ids for replay
+protection. The README documents these limits and what handlers should do
+about them; a gap in that documentation is in scope.

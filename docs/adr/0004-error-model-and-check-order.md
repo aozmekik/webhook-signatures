@@ -21,23 +21,37 @@ body parser already ran; a negative tolerance; an invalid `now`; a relative
 Twilio URL) reject with `TypeError` or `RangeError`, so they surface in tests
 instead of looking like a bad request.
 
-**Fixed check order.** Options, then secrets (`invalid_secret`), then headers
-(`missing_header`, `malformed_header`), then the HMAC (`signature_mismatch`),
-then the clock (`timestamp_out_of_tolerance`). Verifying the signature before
+**Fixed check order.** Options (`TypeError` / `RangeError`: tolerance, clock,
+Twilio URL and scheme, the type of the headers and of the payload), then
+secrets (`invalid_secret`), then headers (`missing_header`,
+`malformed_header`), then the HMAC (`signature_mismatch`), then the clock
+(`timestamp_out_of_tolerance`). Every verifier gets the first steps from one
+shared function, and the conformance suite checks that a parsed body with a
+missing secret reports the `TypeError`, which points at the body parser. Verifying the signature before
 the timestamp means `timestamp_out_of_tolerance` is only ever reported for a
 request the provider really signed: it points at a replay or at clock skew,
 never at a forgery. The cost is one HMAC for stale forged requests, which is
 the same cost as any forged request.
 
-**Symmetric windows with provider defaults.** The signed timestamp must be
-within `toleranceSeconds` of `now` in either direction (inclusive). Defaults
-follow each provider: 300 seconds for Stripe (its libraries' default), Slack
-(five minutes, per its docs) and Standard Webhooks (the reference libraries),
-and 5 seconds for Paddle (its SDK and docs). Some official libraries only
-reject old timestamps; rejecting future ones as well closes the "pre-signed
-far in the future" case at no cost for honest senders. `Infinity` disables the
-check explicitly; `0` means "exactly now", not "disabled" (unlike stripe-node,
-where 0 turns the check off).
+**Windows in both directions, with provider defaults.** The signed timestamp
+must be within `toleranceSeconds` of `now` (inclusive). Defaults follow each
+provider: 300 seconds for Stripe (its libraries' default), Slack (five
+minutes, per its docs) and Standard Webhooks (the reference libraries), and
+5 seconds for Paddle (its SDK and docs).
+
+Slack and the Standard Webhooks libraries check both directions; stripe-node
+and Paddle's SDK only reject old timestamps. Rejecting timestamps from the
+future as well bounds how long a request stays replayable when the
+provider's clock runs ahead of the receiver's. The cost falls on honest
+senders whose clock is ahead by more than the window. At 300 seconds that is
+negligible. At Paddle's 5 seconds it is not: a receiver running more than
+5 seconds behind Paddle would reject every genuine event the SDK accepts. So
+Paddle's future side is `max(toleranceSeconds, 60)` seconds. That is enough
+for ordinary drift, and a future-dated request still stays replayable for
+about a minute at most.
+
+`Infinity` disables the check explicitly. `0` means "not older than now", not
+"disabled" (unlike stripe-node, where 0 turns the check off).
 
 **Signed bytes are used verbatim.** The signed string is built from the
 timestamp text exactly as it appeared in the header, never from a re-serialized
@@ -50,7 +64,12 @@ rather than a guess.
 ## Consequences
 
 - Handlers can map codes to responses and metrics without parsing strings.
-- `toleranceSeconds` only exists on providers that sign a timestamp, so the
-  type system prevents configuring a replay window that would not be enforced.
-- Paddle's 5 second default is strict; queued or delayed verification must
-  raise it explicitly, which the README calls out.
+- `toleranceSeconds` only exists on the options of providers that sign a
+  timestamp. A direct call with an object literal, such as
+  `verifyGitHub({ ..., toleranceSeconds })`, therefore fails to compile instead
+  of silently configuring a window that is never enforced. TypeScript skips
+  that excess-property check for options built elsewhere. `verifyWebhook` with
+  a union of providers also accepts every option any member uses (see
+  `VerifyWebhookOptions`); providers without timestamps ignore those.
+- Paddle's 5 second default is strict for old timestamps; queued or delayed
+  verification must raise it explicitly, which the README calls out.

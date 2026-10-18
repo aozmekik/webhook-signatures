@@ -49,3 +49,27 @@ npm ci
 - Tests must not depend on the wall clock: pass `now`, or use fake timers for
   third-party code that reads `Date.now()`.
 - Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/).
+
+## Releasing
+
+Releases are cut from `main` by the maintainer:
+
+1. Move the `[Unreleased]` entries in `CHANGELOG.md` under the new version and
+   date, and set `version` in `package.json`.
+2. Run `npm run ci` on a clean clone.
+3. Create an annotated tag (`git tag -a v0.1.0 -m "v0.1.0"`) and push it with
+   `git push --follow-tags`. Installs can then pin it:
+   `npm install github:aozmekik/webhook-signatures#v0.1.0`.
+4. Create a GitHub Release for the tag and attach the `npm pack` tarball, so
+   users can install the built package without the development toolchain.
+5. Once, in the repository settings: enable private vulnerability reporting,
+   which the link in [SECURITY.md](SECURITY.md) relies on.
+
+**npm name.** An unrelated package named `webhook-signatures` was published
+at versions 0.1.0 and 1.0.0 in September 2025 and then unpublished. npm never
+allows a name@version to be reused, so those two versions can never be
+published under this name. Before the first npm release, either publish the
+next free version (for example 0.2.0, and 2.0.0 as the first stable release)
+or move to a scope (for example `@aozmekik/webhook-signatures`), which means
+updating the imports in the README, examples, tests, `tsconfig.json` paths
+and the Vitest aliases.
