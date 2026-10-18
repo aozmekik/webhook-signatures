@@ -50,6 +50,16 @@ npm ci
   third-party code that reads `Date.now()`.
 - Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/).
 
+## Dependencies
+
+The published package has no runtime dependencies: everything in
+`package.json` is for development and tests, and Dependabot proposes updates
+weekly. `overrides` in `package.json` lift two packages that Miniflare (used
+only by the workerd isolation test) pins to versions with published security
+advisories: `sharp` to `^0.35.5` and Miniflare's own `undici` to `^7.30.1`.
+Remove those overrides once a Miniflare release depends on fixed versions;
+`npm audit` should then still report no vulnerabilities.
+
 ## Releasing
 
 Releases are cut from `main` by the maintainer:
