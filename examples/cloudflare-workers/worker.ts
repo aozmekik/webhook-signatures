@@ -2,7 +2,8 @@
  * Cloudflare Worker: one route for several providers, dispatched at runtime
  * with `verifyWebhook`. `request.arrayBuffer()` is the raw body.
  *
- *   wrangler dev examples/cloudflare-workers/worker.ts
+ * Run it with `npm run build`, then `npx wrangler dev` from
+ * examples/cloudflare-workers (see wrangler.toml and examples/README.md).
  */
 import { WebhookVerificationError, verifyWebhook } from 'webhook-signatures';
 import type { ProviderId } from 'webhook-signatures';
@@ -41,9 +42,12 @@ export default {
       });
       return Response.json({ received: true, provider: result.provider });
     } catch (error) {
-      if (error instanceof WebhookVerificationError) {
-        return Response.json({ error: error.code }, { status: 400 });
+      if (error instanceof WebhookVerificationError && error.code !== 'invalid_secret') {
+        // Log the stable code; tell the sender as little as possible.
+        console.warn(`rejected ${error.provider} webhook: ${error.code}`);
+        return new Response('invalid webhook', { status: 400 });
       }
+      // invalid_secret (for example a missing secret binding) and bugs become 500s.
       throw error;
     }
   },

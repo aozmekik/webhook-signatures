@@ -1,6 +1,7 @@
 /**
- * Deno entry point. Run with `deno run --allow-net --allow-env examples/deno/main.ts`
- * after making the package resolvable (see examples/README.md).
+ * Deno entry point. After `npm run build`, from the repository root:
+ *
+ *   SLACK_SIGNING_SECRET=... deno run --allow-net --allow-env --config examples/deno/deno.json examples/deno/main.ts
  */
 import { createHandler } from './handler.ts';
 
@@ -9,4 +10,9 @@ declare const Deno: {
   env: { get(name: string): string | undefined };
 };
 
-Deno.serve(createHandler(Deno.env.get('SLACK_SIGNING_SECRET') ?? ''));
+// Fail at startup rather than answering every request with an error.
+const secret = Deno.env.get('SLACK_SIGNING_SECRET');
+if (secret === undefined || secret === '') {
+  throw new Error('Set SLACK_SIGNING_SECRET');
+}
+Deno.serve(createHandler(secret));

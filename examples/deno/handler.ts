@@ -10,9 +10,12 @@ export function createHandler(signingSecret: string): (request: Request) => Prom
     try {
       await verifySlack({ payload, headers: request.headers, secret: signingSecret });
     } catch (error) {
-      if (error instanceof WebhookVerificationError) {
-        return new Response(error.code, { status: 401 });
+      if (error instanceof WebhookVerificationError && error.code !== 'invalid_secret') {
+        // Log the stable code; tell the sender as little as possible.
+        console.warn(`rejected slack request: ${error.code}`);
+        return new Response('invalid request signature', { status: 400 });
       }
+      // invalid_secret is a configuration error: Deno.serve answers 500.
       throw error;
     }
     const form = new URLSearchParams(new TextDecoder().decode(payload));

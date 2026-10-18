@@ -31,8 +31,11 @@ export function createApp(secret: string): express.Express {
   app.use(express.json());
 
   app.use((error: unknown, _req: Request, res: Response, next: NextFunction) => {
-    if (error instanceof WebhookVerificationError) {
-      res.status(400).json({ error: error.code });
+    // invalid_secret is a configuration error: leave it to Express's 500 handler.
+    if (error instanceof WebhookVerificationError && error.code !== 'invalid_secret') {
+      // Log the stable code; tell the sender as little as possible.
+      console.warn(`rejected ${error.provider} webhook: ${error.code}`);
+      res.status(400).json({ error: 'invalid webhook' });
       return;
     }
     next(error);
