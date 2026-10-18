@@ -36,8 +36,11 @@ export default defineConfig({
         },
       },
       {
-        // The same unit and property suites, run against the Web APIs of
-        // Vercel's edge-runtime (@edge-runtime/vm) instead of Node's globals.
+        // The same unit and property suites, run with the Web API
+        // implementations of Vercel's edge-runtime (@edge-runtime/vm). Node's
+        // globals such as Buffer and process stay visible in this environment,
+        // so it does not prove their absence: test/isolation does, by running
+        // the bundled library in a bare edge-runtime VM and in workerd.
         extends: true,
         test: {
           name: 'edge',

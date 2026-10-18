@@ -7,7 +7,9 @@ describe('runtime requirements', () => {
     vi.unstubAllGlobals();
   });
 
-  it('only needs globalThis.crypto.subtle, TextEncoder/TextDecoder, atob/btoa and URL', async () => {
+  // That nothing beyond Web-standard globals is needed is proven by
+  // test/isolation, which runs the bundled library without Node's globals.
+  it('round-trips with the default globals', async () => {
     const payload = 'ok';
     const headers = await signGitHub({ payload, secret: 's' });
     await expect(verifyGitHub({ payload, headers, secret: 's' })).resolves.toBeDefined();
