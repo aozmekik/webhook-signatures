@@ -318,10 +318,10 @@ Node v22.22.3, Vitest 5.0.5; Node 24 has not been run locally.
   ([`test/isolation/`](test/isolation/)).
 - **Examples**: every handler in `examples/`, end to end ([`test/examples/`](test/examples/)).
 
-`npm test` runs 853 tests: 460 in the Node project, plus the 393 unit and
+`npm test` runs 893 tests: 480 in the Node project, plus the 413 unit and
 property tests again under Vitest's `edge-runtime` environment.
-`npm run test:coverage` reports 100% of statements (451/451), branches
-(271/271), functions (66/66) and lines (447/447) in `src/`; the configured
+`npm run test:coverage` reports 100% of statements (453/453), branches
+(257/257), functions (68/68) and lines (449/449) in `src/`; the configured
 threshold fails the run below that.
 
 Runtime support: Node.js is tested directly (22 locally; 22 and 24 configured
@@ -336,15 +336,16 @@ Measured on an Apple M1 Pro (16 GB), Node v22.22.3, with
 machine was shared with other jobs; [docs/benchmarks.md](docs/benchmarks.md)
 has the full tables, the method and the load averages.
 
-- **Time:** about 20 µs per verification for a 1 KiB body and 57 to 72 µs for
-  64 KiB (fastest batch), when the body is passed as bytes. For comparison,
-  stripe-node takes 3.5 µs and 78 µs on its synchronous `node:crypto` path.
+- **Time:** about 21 to 23 µs per verification for a 1 KiB body and 56 to
+  71 µs for 64 KiB (fastest batch), when the body is passed as bytes. For
+  comparison, stripe-node takes 3.7 µs and 84 µs on its synchronous
+  `node:crypto` path.
   At small sizes the fixed cost of a Web Crypto call dominates. Passing a
   string instead of bytes costs a UTF-8 encode, which more than doubles the
   64 KiB time.
-- **Size:** one verifier adds 1,767 to 2,609 bytes minified and gzipped
+- **Size:** one verifier adds 1,774 to 2,620 bytes minified and gzipped
   (esbuild 0.28.2); `verifyWebhook`, which includes every provider, adds
-  4,694.
+  4,791.
 
 ## Limitations
 
