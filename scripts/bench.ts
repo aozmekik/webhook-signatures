@@ -1,13 +1,17 @@
 /**
  * Micro-benchmark: time per successful verification, for each provider and
- * two payload sizes, plus stripe-node's own signature check for reference.
+ * two payload sizes, plus stripe-node's own signature check and two raw Web
+ * Crypto calls (HMAC verify with and without re-importing the key) for
+ * reference.
  *
  * Method: build once (`npm run build`), warm every case up, then take SAMPLES
  * rounds; in each round every case runs one timed batch of ITERATIONS
  * sequential awaited calls. Interleaving the cases spreads background load
  * evenly across them. Each cell reports the fastest batch and the median
  * batch, in microseconds per verification. Payloads are synthetic JSON of the
- * stated size.
+ * stated size, passed as bytes, as the README recipes do (`request.arrayBuffer()`,
+ * `express.raw()`); one case passes a string instead, to show what UTF-8
+ * encoding the body costs.
  *
  * Usage: npm run build && node scripts/bench.ts
  */
@@ -39,7 +43,8 @@ function syntheticPayload(bytes: number): string {
 type Case = readonly [label: string, run: () => unknown];
 
 async function cases(size: number): Promise<Case[]> {
-  const payload = syntheticPayload(size);
+  const text = syntheticPayload(size);
+  const payload = new TextEncoder().encode(text);
   const secret = 'whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw';
   const stripe = await testing.signStripe({ payload, secret, timestamp: now });
   const github = await testing.signGitHub({ payload, secret });
@@ -60,12 +65,26 @@ async function cases(size: number): Promise<Case[]> {
   const paddle = await testing.signPaddle({ payload, secret, timestamp: now });
   const lemon = await testing.signLemonSqueezy({ payload, secret });
   const stripeHeader = stripe['stripe-signature'];
+  const rawBody = Buffer.from(payload); // what express.raw() hands to stripe-node
   const subtle = Stripe.createSubtleCryptoProvider();
   const stripeSignature = Stripe.webhooks.signature;
   if (stripeSignature === null) {
     throw new Error('stripe-node exposes no signature helper');
   }
   const nowMs = now.getTime();
+  // Raw Web Crypto, to isolate what importing the key on every call costs
+  // (ADR 0001): one HMAC-SHA256 verify over the body, with and without a
+  // fresh importKey.
+  const keyBytes = new TextEncoder().encode(secret);
+  const algorithm = { name: 'HMAC', hash: 'SHA-256' };
+  const cachedKey = await crypto.subtle.importKey('raw', keyBytes, algorithm, false, ['verify']);
+  const tag = new Uint8Array(
+    await crypto.subtle.sign(
+      'HMAC',
+      await crypto.subtle.importKey('raw', keyBytes, algorithm, false, ['sign']),
+      payload,
+    ),
+  );
   return [
     ['verifyStripe', () => lib.verifyStripe({ payload, headers: stripe, secret, now })],
     ['verifyGitHub', () => lib.verifyGitHub({ payload, headers: github, secret })],
@@ -88,15 +107,30 @@ async function cases(size: number): Promise<Case[]> {
     ],
     ['verifyPaddle', () => lib.verifyPaddle({ payload, headers: paddle, secret, now })],
     ['verifyLemonSqueezy', () => lib.verifyLemonSqueezy({ payload, headers: lemon, secret })],
+    [
+      'verifyGitHub, string payload',
+      () => lib.verifyGitHub({ payload: text, headers: github, secret }),
+    ],
     // Reference points: stripe-node's signature check alone (no JSON parsing),
     // with its default node:crypto provider and with its Web Crypto provider.
     [
       'stripe-node signature.verifyHeader (node:crypto, sync)',
-      () => stripeSignature.verifyHeader(payload, stripeHeader, secret, 300, undefined, nowMs),
+      () => stripeSignature.verifyHeader(rawBody, stripeHeader, secret, 300, undefined, nowMs),
     ],
     [
       'stripe-node signature.verifyHeaderAsync (Web Crypto)',
-      () => stripeSignature.verifyHeaderAsync(payload, stripeHeader, secret, 300, subtle, nowMs),
+      () => stripeSignature.verifyHeaderAsync(rawBody, stripeHeader, secret, 300, subtle, nowMs),
+    ],
+    [
+      'Web Crypto HMAC verify, key imported per call',
+      async () => {
+        const key = await crypto.subtle.importKey('raw', keyBytes, algorithm, false, ['verify']);
+        return crypto.subtle.verify('HMAC', key, tag, payload);
+      },
+    ],
+    [
+      'Web Crypto HMAC verify, CryptoKey reused',
+      () => crypto.subtle.verify('HMAC', cachedKey, tag, payload),
     ],
   ];
 }
