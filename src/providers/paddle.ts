@@ -139,7 +139,9 @@ export interface PaddleSignOptions extends SignOptions, SignTimestampOptions {}
  * **Test utility.** Produces a `Paddle-Signature` header for `payload`, with
  * one `h1` per secret.
  */
-export async function signPaddle(options: PaddleSignOptions): Promise<SignedHeaders> {
+export async function signPaddle(
+  options: PaddleSignOptions,
+): Promise<SignedHeaders<'paddle-signature'>> {
   const secrets = secretList(options.secret, PROVIDER);
   const timestamp = toUnixSeconds(options.timestamp);
   const message = concatBytes(utf8(`${timestamp}:`), payloadToBytes(options.payload));

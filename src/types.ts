@@ -84,5 +84,9 @@ export interface SignTimestampOptions {
   readonly timestamp?: Date | undefined;
 }
 
-/** Header names (lower-case) mapped to values, as produced by the `sign*` helpers. */
-export type SignedHeaders = Record<string, string>;
+/**
+ * Header names (lower-case) mapped to values, as produced by the `sign*`
+ * helpers. Each helper names the headers it returns, so reading one needs no
+ * `undefined` check.
+ */
+export type SignedHeaders<Name extends string = string> = Record<Name, string>;

@@ -37,10 +37,29 @@ export interface WebhookProviders {
   'lemon-squeezy': { options: LemonSqueezyVerifyOptions; result: LemonSqueezyVerifyResult };
 }
 
-/** Options accepted by {@link verifyWebhook} for provider `P`. */
-export type VerifyWebhookOptions<P extends ProviderId> = WebhookProviders[P]['options'];
+/** The intersection of the members of union `U` (`U` itself when it is not a union). */
+type Intersection<U> = (U extends unknown ? (value: U) => void : never) extends (
+  value: infer I,
+) => void
+  ? I
+  : never;
 
-/** Result returned by {@link verifyWebhook} for provider `P`. */
+/**
+ * Options accepted by {@link verifyWebhook} for provider `P`.
+ *
+ * When `P` is a union, because the provider is only known at runtime, the
+ * options must be valid for every provider in it: `url` is required as soon
+ * as `P` includes `'twilio'`. Options that only some providers use, such as
+ * `toleranceSeconds`, are ignored by the others.
+ */
+export type VerifyWebhookOptions<P extends ProviderId> = Intersection<
+  WebhookProviders[P]['options']
+>;
+
+/**
+ * Result returned by {@link verifyWebhook} for provider `P`; a union of
+ * results when `P` is a union.
+ */
 export type VerifyWebhookResult<P extends ProviderId> = WebhookProviders[P]['result'];
 
 type Verifiers = {
@@ -60,7 +79,9 @@ const verifiers: Verifiers = {
 
 /**
  * Verifies a webhook for the provider named at runtime, for example from a
- * route parameter. The options and result are typed per provider.
+ * route parameter. The options and result are typed per provider; with a
+ * union of providers the options must suit all of them (see
+ * {@link VerifyWebhookOptions}).
  *
  * This references every verifier, so bundles that use it include all
  * providers. Import the specific `verify*` function instead when the provider

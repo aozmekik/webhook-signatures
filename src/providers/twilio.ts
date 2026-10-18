@@ -289,8 +289,8 @@ export interface TwilioSignOptions extends SignOptions {
 export interface TwilioSignedRequest {
   /** The URL to request. Differs from the input when `bodySHA256` was appended. */
   readonly url: string;
-  /** Contains `x-twilio-signature`. */
-  readonly headers: SignedHeaders;
+  /** The `x-twilio-signature` header. */
+  readonly headers: SignedHeaders<'x-twilio-signature'>;
 }
 
 /**

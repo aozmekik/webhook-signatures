@@ -98,7 +98,9 @@ export type GitHubSignOptions = SignOptions;
  * GitHub sends a single signature, so when a list of secrets is given only the
  * first one is used.
  */
-export async function signGitHub(options: GitHubSignOptions): Promise<SignedHeaders> {
+export async function signGitHub(
+  options: GitHubSignOptions,
+): Promise<SignedHeaders<'x-hub-signature-256'>> {
   const secret = utf8(firstSecret(options.secret, PROVIDER));
   const signature = await hmacSign(secret, payloadToBytes(options.payload), 'SHA-256');
   return { [HEADER]: `${PREFIX}${bytesToHex(signature)}` };

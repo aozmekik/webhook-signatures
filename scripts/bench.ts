@@ -59,7 +59,7 @@ async function cases(size: number): Promise<Case[]> {
   });
   const paddle = await testing.signPaddle({ payload, secret, timestamp: now });
   const lemon = await testing.signLemonSqueezy({ payload, secret });
-  const stripeHeader = stripe['stripe-signature'] ?? '';
+  const stripeHeader = stripe['stripe-signature'];
   const subtle = Stripe.createSubtleCryptoProvider();
   const stripeSignature = Stripe.webhooks.signature;
   if (stripeSignature === null) {

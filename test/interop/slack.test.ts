@@ -19,7 +19,7 @@ describe('@slack/bolt interop', () => {
         signingSecret,
         body,
         headers: {
-          'x-slack-signature': headers['x-slack-signature'] ?? '',
+          'x-slack-signature': headers['x-slack-signature'],
           'x-slack-request-timestamp': Number(headers['x-slack-request-timestamp']),
         },
         nowMilliseconds: NOW.getTime(),
@@ -36,7 +36,7 @@ describe('@slack/bolt interop', () => {
         signingSecret,
         body: tampered,
         headers: {
-          'x-slack-signature': headers['x-slack-signature'] ?? '',
+          'x-slack-signature': headers['x-slack-signature'],
           'x-slack-request-timestamp': Number(headers['x-slack-request-timestamp']),
         },
         nowMilliseconds: NOW.getTime(),

@@ -141,7 +141,9 @@ export interface StripeSignOptions extends SignOptions, SignTimestampOptions {}
  * await app.request('/webhooks/stripe', { method: 'POST', body, headers });
  * ```
  */
-export async function signStripe(options: StripeSignOptions): Promise<SignedHeaders> {
+export async function signStripe(
+  options: StripeSignOptions,
+): Promise<SignedHeaders<'stripe-signature'>> {
   const secrets = secretList(options.secret, PROVIDER);
   const timestamp = toUnixSeconds(options.timestamp);
   const message = concatBytes(utf8(`${timestamp}.`), payloadToBytes(options.payload));

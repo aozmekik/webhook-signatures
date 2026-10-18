@@ -48,7 +48,7 @@ describe('twilio-node interop', () => {
     'twilio.validateRequest accepts signTwilio output ($label)',
     async ({ url, body }) => {
       const { headers } = await signTwilio({ payload: body, secret: authToken, url });
-      const signature = headers['x-twilio-signature'] ?? '';
+      const signature = headers['x-twilio-signature'];
       expect(signature).toBe(twilio.getExpectedTwilioSignature(authToken, url, toParams(body)));
       expect(twilio.validateRequest(authToken, signature, url, toParams(body))).toBe(true);
     },
@@ -98,7 +98,7 @@ describe('twilio-node interop', () => {
         scheme: 'body-sha256',
       });
       expect(
-        twilio.validateRequestWithBody(authToken, headers['x-twilio-signature'] ?? '', url, body),
+        twilio.validateRequestWithBody(authToken, headers['x-twilio-signature'], url, body),
       ).toBe(true);
     });
 

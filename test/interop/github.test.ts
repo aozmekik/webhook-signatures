@@ -13,7 +13,7 @@ const payloads = [
 
 describe('@octokit/webhooks-methods interop', () => {
   it.each(payloads)('octokit verifies signGitHub output (%#)', async (payload) => {
-    const header = (await signGitHub({ payload, secret }))['x-hub-signature-256'] ?? '';
+    const header = (await signGitHub({ payload, secret }))['x-hub-signature-256'];
     expect(await verify(secret, payload, header)).toBe(true);
   });
 

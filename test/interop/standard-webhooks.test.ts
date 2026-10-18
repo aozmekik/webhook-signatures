@@ -68,7 +68,7 @@ describe('svix interop', () => {
       timestamp: NOW,
       headerPrefix: 'svix',
     });
-    expect(headers['svix-signature']?.split(' ')).toHaveLength(2);
+    expect(headers['svix-signature'].split(' ')).toHaveLength(2);
     // Svix's verify() returns nothing and throws on failure.
     expect(() => {
       new SvixWebhook(secret).verify(payload, headers);
@@ -121,9 +121,9 @@ describe('resend interop', () => {
       payload,
       webhookSecret: secret,
       headers: {
-        id: headers['svix-id'] ?? '',
-        timestamp: headers['svix-timestamp'] ?? '',
-        signature: headers['svix-signature'] ?? '',
+        id: headers['svix-id'],
+        timestamp: headers['svix-timestamp'],
+        signature: headers['svix-signature'],
       },
     });
     expect(event).toEqual(JSON.parse(payload));

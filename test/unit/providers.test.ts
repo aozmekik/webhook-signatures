@@ -30,15 +30,14 @@ describe('Stripe', () => {
 
   it('ignores v0 test signatures and unknown schemes next to a valid v1', async () => {
     const signed = await signStripe({ payload, secret, timestamp: NOW });
-    const value = `${signed['stripe-signature'] ?? ''},v0=${'00'.repeat(32)},v9=future`;
+    const value = `${signed['stripe-signature']},v0=${'00'.repeat(32)},v9=future`;
     await expect(
       verifyStripe({ payload, headers: { 'stripe-signature': value }, secret, now: NOW }),
     ).resolves.toEqual({ provider: 'stripe', timestamp: NOW });
   });
 
   it('tolerates whitespace around elements and upper-case hex', async () => {
-    const signed =
-      (await signStripe({ payload, secret, timestamp: NOW }))['stripe-signature'] ?? '';
+    const signed = (await signStripe({ payload, secret, timestamp: NOW }))['stripe-signature'];
     const [ts, v1] = signed.split(',');
     const value = ` ${ts ?? ''} , ${(v1 ?? '').toUpperCase().replace('V1=', 'v1=')} `;
     await expect(
@@ -48,8 +47,7 @@ describe('Stripe', () => {
 
   it('signs over the timestamp text exactly as sent', async () => {
     // A leading zero changes the signed string, so it must not be normalised away.
-    const signed =
-      (await signStripe({ payload, secret, timestamp: NOW }))['stripe-signature'] ?? '';
+    const signed = (await signStripe({ payload, secret, timestamp: NOW }))['stripe-signature'];
     const zeroPadded = signed.replace('t=', 't=0');
     await expectCode(
       verifyStripe({ payload, headers: { 'stripe-signature': zeroPadded }, secret, now: NOW }),

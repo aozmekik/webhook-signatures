@@ -110,7 +110,9 @@ export interface SlackSignOptions extends SignOptions, SignTimestampOptions {}
  * **Test utility.** Produces `X-Slack-Request-Timestamp` and
  * `X-Slack-Signature` headers for `payload`.
  */
-export async function signSlack(options: SlackSignOptions): Promise<SignedHeaders> {
+export async function signSlack(
+  options: SlackSignOptions,
+): Promise<SignedHeaders<'x-slack-request-timestamp' | 'x-slack-signature'>> {
   const secret = utf8(firstSecret(options.secret, PROVIDER));
   const timestamp = toUnixSeconds(options.timestamp);
   const message = concatBytes(utf8(`${VERSION}:${timestamp}:`), payloadToBytes(options.payload));

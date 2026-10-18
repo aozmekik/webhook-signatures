@@ -19,8 +19,7 @@ const nowSeconds = NOW.getTime() / 1000;
 
 describe('stripe-node interop', () => {
   it('stripe-node accepts headers from signStripe (sync and Web Crypto providers)', async () => {
-    const header =
-      (await signStripe({ payload, secret, timestamp: NOW }))['stripe-signature'] ?? '';
+    const header = (await signStripe({ payload, secret, timestamp: NOW }))['stripe-signature'];
     const event = Stripe.webhooks.constructEvent(
       payload,
       header,
@@ -42,10 +41,9 @@ describe('stripe-node interop', () => {
   });
 
   it('stripe-node accepts a rotation header from signStripe with either secret', async () => {
-    const header =
-      (await signStripe({ payload, secret: [secret, 'whsec_old'], timestamp: NOW }))[
-        'stripe-signature'
-      ] ?? '';
+    const header = (await signStripe({ payload, secret: [secret, 'whsec_old'], timestamp: NOW }))[
+      'stripe-signature'
+    ];
     for (const key of [secret, 'whsec_old']) {
       expect(
         Stripe.webhooks.constructEvent(payload, header, key, 300, undefined, NOW.getTime()).id,

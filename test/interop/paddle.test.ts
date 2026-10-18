@@ -29,8 +29,7 @@ afterEach(() => {
 
 describe('@paddle/paddle-node-sdk interop', () => {
   it('the SDK accepts signPaddle output', async () => {
-    const signature =
-      (await signPaddle({ payload, secret, timestamp: NOW }))['paddle-signature'] ?? '';
+    const signature = (await signPaddle({ payload, secret, timestamp: NOW }))['paddle-signature'];
     expect(await paddle.webhooks.isSignatureValid(payload, secret, signature)).toBe(true);
     // Four seconds later is still inside Paddle's window.
     vi.setSystemTime(shift(NOW, 4));
@@ -46,7 +45,7 @@ describe('@paddle/paddle-node-sdk interop', () => {
       secret: ['pdl_ntfset_old', secret],
       timestamp: NOW,
     });
-    const signature = rotated['paddle-signature'] ?? '';
+    const signature = rotated['paddle-signature'];
     expect(await paddle.webhooks.isSignatureValid(payload, secret, signature)).toBe(true);
     for (const key of ['pdl_ntfset_old', secret]) {
       await expect(
@@ -56,8 +55,7 @@ describe('@paddle/paddle-node-sdk interop', () => {
   });
 
   it('both reject a tampered body and a wrong secret', async () => {
-    const signature =
-      (await signPaddle({ payload, secret, timestamp: NOW }))['paddle-signature'] ?? '';
+    const signature = (await signPaddle({ payload, secret, timestamp: NOW }))['paddle-signature'];
     const tampered = payload.replace('completed', 'refunded');
     expect(await paddle.webhooks.isSignatureValid(tampered, secret, signature)).toBe(false);
     expect(await paddle.webhooks.isSignatureValid(payload, 'pdl_ntfset_other', signature)).toBe(
@@ -70,8 +68,9 @@ describe('@paddle/paddle-node-sdk interop', () => {
   });
 
   it('both accept a timestamp a few seconds ahead (receiver clock behind Paddle)', async () => {
-    const signature =
-      (await signPaddle({ payload, secret, timestamp: shift(NOW, 6) }))['paddle-signature'] ?? '';
+    const signature = (await signPaddle({ payload, secret, timestamp: shift(NOW, 6) }))[
+      'paddle-signature'
+    ];
     expect(await paddle.webhooks.isSignatureValid(payload, secret, signature)).toBe(true);
     await expect(
       verifyPaddle({ payload, headers: { 'paddle-signature': signature }, secret }),
@@ -79,8 +78,9 @@ describe('@paddle/paddle-node-sdk interop', () => {
   });
 
   it('both enforce the 5 second window', async () => {
-    const signature =
-      (await signPaddle({ payload, secret, timestamp: shift(NOW, -6) }))['paddle-signature'] ?? '';
+    const signature = (await signPaddle({ payload, secret, timestamp: shift(NOW, -6) }))[
+      'paddle-signature'
+    ];
     expect(await paddle.webhooks.isSignatureValid(payload, secret, signature)).toBe(false);
     await expectCode(
       verifyPaddle({ payload, headers: { 'paddle-signature': signature }, secret }),

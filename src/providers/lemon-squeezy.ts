@@ -60,7 +60,9 @@ export async function verifyLemonSqueezy(
 export type LemonSqueezySignOptions = SignOptions;
 
 /** **Test utility.** Produces an `X-Signature` header for `payload`. */
-export async function signLemonSqueezy(options: LemonSqueezySignOptions): Promise<SignedHeaders> {
+export async function signLemonSqueezy(
+  options: LemonSqueezySignOptions,
+): Promise<SignedHeaders<'x-signature'>> {
   const secret = utf8(firstSecret(options.secret, PROVIDER));
   const signature = await hmacSign(secret, payloadToBytes(options.payload), 'SHA-256');
   return { [HEADER]: bytesToHex(signature) };

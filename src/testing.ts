@@ -36,7 +36,11 @@ export type { ShopifySignOptions } from './providers/shopify.js';
 export { signSlack } from './providers/slack.js';
 export type { SlackSignOptions } from './providers/slack.js';
 export { signStandardWebhook } from './providers/standard-webhooks.js';
-export type { StandardWebhookSignOptions } from './providers/standard-webhooks.js';
+export type {
+  StandardWebhookHeaderPrefix,
+  StandardWebhookSignOptions,
+  StandardWebhookSignedHeaders,
+} from './providers/standard-webhooks.js';
 export { signStripe } from './providers/stripe.js';
 export type { StripeSignOptions } from './providers/stripe.js';
 export { signTwilio } from './providers/twilio.js';

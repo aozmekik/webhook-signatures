@@ -162,22 +162,34 @@ export async function verifyStandardWebhook(
   return { provider: PROVIDER, id, timestamp: new Date(timestamp * 1000) };
 }
 
+/** Header-name prefixes: `webhook` (the Standard Webhooks spec) or `svix`. */
+export type StandardWebhookHeaderPrefix = 'webhook' | 'svix';
+
 /** Options for {@link signStandardWebhook}. */
-export interface StandardWebhookSignOptions extends SignOptions, SignTimestampOptions {
+export interface StandardWebhookSignOptions<
+  Prefix extends StandardWebhookHeaderPrefix = StandardWebhookHeaderPrefix,
+>
+  extends SignOptions, SignTimestampOptions {
   /** The message id to sign, for example `msg_2KWPBgLlAfxdpx2AI54pPJ85f4W`. */
   readonly id: string;
   /** Header prefix to emit: `webhook` (the spec, default) or `svix`. */
-  readonly headerPrefix?: 'webhook' | 'svix' | undefined;
+  readonly headerPrefix?: Prefix | undefined;
 }
+
+/** The three headers {@link signStandardWebhook} returns for a given prefix. */
+export type StandardWebhookSignedHeaders<Prefix extends StandardWebhookHeaderPrefix> =
+  Prefix extends StandardWebhookHeaderPrefix
+    ? SignedHeaders<`${Prefix}-id` | `${Prefix}-timestamp` | `${Prefix}-signature`>
+    : never;
 
 /**
  * **Test utility.** Produces `webhook-id`, `webhook-timestamp` and
  * `webhook-signature` headers (or their `svix-` equivalents), with one `v1`
  * signature per secret.
  */
-export async function signStandardWebhook(
-  options: StandardWebhookSignOptions,
-): Promise<SignedHeaders> {
+export async function signStandardWebhook<Prefix extends StandardWebhookHeaderPrefix = 'webhook'>(
+  options: StandardWebhookSignOptions<Prefix>,
+): Promise<StandardWebhookSignedHeaders<Prefix>> {
   const keys = secretList(options.secret, PROVIDER).map(decodeSecret);
   if (typeof options.id !== 'string' || options.id === '') {
     throw new TypeError('id must be a non-empty string');
@@ -189,9 +201,11 @@ export async function signStandardWebhook(
   for (const key of keys) {
     signatures.push(`v1,${bytesToBase64(await hmacSign(key, message, 'SHA-256'))}`);
   }
+  // Computed template keys widen to an index signature; the names are exactly
+  // the three of `prefix`.
   return {
     [`${prefix}-id`]: options.id,
     [`${prefix}-timestamp`]: String(timestamp),
     [`${prefix}-signature`]: signatures.join(' '),
-  };
+  } as StandardWebhookSignedHeaders<Prefix>;
 }

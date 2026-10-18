@@ -71,7 +71,9 @@ export async function verifyShopify(options: ShopifyVerifyOptions): Promise<Shop
 export type ShopifySignOptions = SignOptions;
 
 /** **Test utility.** Produces an `X-Shopify-Hmac-SHA256` header for `payload`. */
-export async function signShopify(options: ShopifySignOptions): Promise<SignedHeaders> {
+export async function signShopify(
+  options: ShopifySignOptions,
+): Promise<SignedHeaders<'x-shopify-hmac-sha256'>> {
   const secret = utf8(firstSecret(options.secret, PROVIDER));
   const signature = await hmacSign(secret, payloadToBytes(options.payload), 'SHA-256');
   return { [HEADER]: bytesToBase64(signature) };

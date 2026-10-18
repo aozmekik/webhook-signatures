@@ -39,14 +39,12 @@ async function shopifyValidates(body: string, hmac: string): Promise<boolean> {
 
 describe('@shopify/shopify-api interop', () => {
   it('shopify.webhooks.validate accepts signShopify output', async () => {
-    const hmac =
-      (await signShopify({ payload, secret: apiSecretKey }))['x-shopify-hmac-sha256'] ?? '';
+    const hmac = (await signShopify({ payload, secret: apiSecretKey }))['x-shopify-hmac-sha256'];
     expect(await shopifyValidates(payload, hmac)).toBe(true);
   });
 
   it('both reject a tampered body', async () => {
-    const hmac =
-      (await signShopify({ payload, secret: apiSecretKey }))['x-shopify-hmac-sha256'] ?? '';
+    const hmac = (await signShopify({ payload, secret: apiSecretKey }))['x-shopify-hmac-sha256'];
     const tampered = payload.replace('10.00', '0.01');
     expect(await shopifyValidates(tampered, hmac)).toBe(false);
     await expectCode(
