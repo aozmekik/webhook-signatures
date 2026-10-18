@@ -16,7 +16,8 @@ import { hmacSign, hmacVerifyAny } from '../internal/crypto.js';
 import { bytesToHex, hexToBytes } from '../internal/encoding.js';
 import { malformedHeader, signatureMismatch } from '../internal/failures.js';
 import { readHeader } from '../internal/headers.js';
-import { firstSecret, secretList } from '../internal/secrets.js';
+import { readVerifyInput } from '../internal/input.js';
+import { firstSecret } from '../internal/secrets.js';
 import { WebhookVerificationError } from '../errors.js';
 import type { SignOptions, SignedHeaders, VerifyOptions } from '../types.js';
 
@@ -57,8 +58,7 @@ export interface GitHubVerifyResult {
  * @throws {@link WebhookVerificationError} when verification fails.
  */
 export async function verifyGitHub(options: GitHubVerifyOptions): Promise<GitHubVerifyResult> {
-  const secrets = secretList(options.secret, PROVIDER);
-  const payload = payloadToBytes(options.payload);
+  const { payload, secrets } = readVerifyInput(options, PROVIDER);
   const value = readHeader(options.headers, HEADER, PROVIDER);
   if (value === undefined) {
     const legacyOnly = readHeader(options.headers, LEGACY_HEADER, PROVIDER) !== undefined;

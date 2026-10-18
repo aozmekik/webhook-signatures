@@ -27,7 +27,8 @@ import { hmacSign, hmacVerifyAny, sha256 } from '../internal/crypto.js';
 import { base64ToBytes, bytesToBase64, bytesToHex } from '../internal/encoding.js';
 import { malformedHeader, signatureMismatch } from '../internal/failures.js';
 import { requireHeader } from '../internal/headers.js';
-import { firstSecret, secretList } from '../internal/secrets.js';
+import { readVerifyInput } from '../internal/input.js';
+import { firstSecret } from '../internal/secrets.js';
 import type { SignOptions, SignedHeaders, VerifyOptions } from '../types.js';
 
 const PROVIDER = 'twilio';
@@ -158,8 +159,7 @@ export async function verifyTwilio(options: TwilioVerifyOptions): Promise<Twilio
   }
   const urls = candidateUrls(options.url);
   const expectedBodyHash = bodyHashParam(options.url);
-  const secrets = secretList(options.secret, PROVIDER);
-  const payload = payloadToBytes(options.payload);
+  const { payload, secrets } = readVerifyInput(options, PROVIDER);
   const signature = base64ToBytes(
     requireHeader(options.headers, HEADER, PROVIDER, 'X-Twilio-Signature'),
     20,

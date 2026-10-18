@@ -17,7 +17,8 @@ import { hmacSign, hmacVerifyAny } from '../internal/crypto.js';
 import { base64ToBytes, bytesToBase64 } from '../internal/encoding.js';
 import { malformedHeader, signatureMismatch } from '../internal/failures.js';
 import { readHeader, requireHeader } from '../internal/headers.js';
-import { firstSecret, secretList } from '../internal/secrets.js';
+import { readVerifyInput } from '../internal/input.js';
+import { firstSecret } from '../internal/secrets.js';
 import type { SignOptions, SignedHeaders, VerifyOptions } from '../types.js';
 
 const PROVIDER = 'shopify';
@@ -46,8 +47,7 @@ export interface ShopifyVerifyResult {
  * @throws {@link WebhookVerificationError} when verification fails.
  */
 export async function verifyShopify(options: ShopifyVerifyOptions): Promise<ShopifyVerifyResult> {
-  const secrets = secretList(options.secret, PROVIDER);
-  const payload = payloadToBytes(options.payload);
+  const { payload, secrets } = readVerifyInput(options, PROVIDER);
   const value = requireHeader(options.headers, HEADER, PROVIDER, 'X-Shopify-Hmac-SHA256');
   const signature = base64ToBytes(value, 32);
   if (signature === undefined) {

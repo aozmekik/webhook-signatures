@@ -17,7 +17,8 @@ import { hmacSign, hmacVerifyAny } from '../internal/crypto.js';
 import { bytesToHex, hexToBytes } from '../internal/encoding.js';
 import { malformedHeader, signatureMismatch } from '../internal/failures.js';
 import { requireHeader } from '../internal/headers.js';
-import { firstSecret, secretList } from '../internal/secrets.js';
+import { readVerifyInput } from '../internal/input.js';
+import { firstSecret } from '../internal/secrets.js';
 import {
   assertFresh,
   parseUnixSeconds,
@@ -60,8 +61,7 @@ export interface SlackVerifyResult {
  */
 export async function verifySlack(options: SlackVerifyOptions): Promise<SlackVerifyResult> {
   const window = resolveTolerance(options, DEFAULT_TOLERANCE_SECONDS);
-  const secrets = secretList(options.secret, PROVIDER);
-  const payload = payloadToBytes(options.payload);
+  const { payload, secrets } = readVerifyInput(options, PROVIDER);
   const timestampText = requireHeader(
     options.headers,
     TIMESTAMP_HEADER,

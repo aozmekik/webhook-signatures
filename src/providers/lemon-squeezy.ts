@@ -15,7 +15,8 @@ import { hmacSign, hmacVerifyAny } from '../internal/crypto.js';
 import { bytesToHex, hexToBytes } from '../internal/encoding.js';
 import { malformedHeader, signatureMismatch } from '../internal/failures.js';
 import { readHeader, requireHeader } from '../internal/headers.js';
-import { firstSecret, secretList } from '../internal/secrets.js';
+import { readVerifyInput } from '../internal/input.js';
+import { firstSecret } from '../internal/secrets.js';
 import type { SignOptions, SignedHeaders, VerifyOptions } from '../types.js';
 
 const PROVIDER = 'lemon-squeezy';
@@ -44,8 +45,7 @@ export interface LemonSqueezyVerifyResult {
 export async function verifyLemonSqueezy(
   options: LemonSqueezyVerifyOptions,
 ): Promise<LemonSqueezyVerifyResult> {
-  const secrets = secretList(options.secret, PROVIDER);
-  const payload = payloadToBytes(options.payload);
+  const { payload, secrets } = readVerifyInput(options, PROVIDER);
   const signature = hexToBytes(requireHeader(options.headers, HEADER, PROVIDER, 'X-Signature'), 32);
   if (signature === undefined) {
     throw malformedHeader(PROVIDER, HEADER, 'X-Signature must be 64 hex characters');

@@ -27,6 +27,7 @@ import { MAX_SIGNATURES_PER_HEADER, hmacSign, hmacVerifyAny } from '../internal/
 import { base64ToBytes, bytesToBase64 } from '../internal/encoding.js';
 import { assertSignatureCount, malformedHeader, signatureMismatch } from '../internal/failures.js';
 import { readHeader, requireHeader } from '../internal/headers.js';
+import { readVerifyInput } from '../internal/input.js';
 import { invalidSecret, secretList } from '../internal/secrets.js';
 import {
   assertFresh,
@@ -139,8 +140,8 @@ export async function verifyStandardWebhook(
   options: StandardWebhookVerifyOptions,
 ): Promise<StandardWebhookVerifyResult> {
   const window = resolveTolerance(options, DEFAULT_TOLERANCE_SECONDS);
-  const keys = secretList(options.secret, PROVIDER).map(decodeSecret);
-  const payload = payloadToBytes(options.payload);
+  const { payload, secrets } = readVerifyInput(options, PROVIDER);
+  const keys = secrets.map(decodeSecret);
   const names = headerNames(options.headers);
   const id = requireHeader(options.headers, names.id, PROVIDER, names.id);
   const timestampText = requireHeader(options.headers, names.timestamp, PROVIDER, names.timestamp);

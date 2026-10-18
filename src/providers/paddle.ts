@@ -23,6 +23,7 @@ import { MAX_SIGNATURES_PER_HEADER, hmacSign, hmacVerifyAny } from '../internal/
 import { bytesToHex, hexToBytes } from '../internal/encoding.js';
 import { assertSignatureCount, malformedHeader, signatureMismatch } from '../internal/failures.js';
 import { requireHeader } from '../internal/headers.js';
+import { readVerifyInput } from '../internal/input.js';
 import { parseKeyValueList } from '../internal/parse.js';
 import { secretList } from '../internal/secrets.js';
 import {
@@ -105,8 +106,7 @@ function parseHeader(value: string): ParsedPaddleHeader {
  */
 export async function verifyPaddle(options: PaddleVerifyOptions): Promise<PaddleVerifyResult> {
   const window = resolveTolerance(options, DEFAULT_TOLERANCE_SECONDS);
-  const secrets = secretList(options.secret, PROVIDER);
-  const payload = payloadToBytes(options.payload);
+  const { payload, secrets } = readVerifyInput(options, PROVIDER);
   const header = parseHeader(requireHeader(options.headers, HEADER, PROVIDER, 'Paddle-Signature'));
 
   const message = concatBytes(utf8(`${header.timestampText}:`), payload);

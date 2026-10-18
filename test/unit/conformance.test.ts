@@ -245,6 +245,17 @@ describe.each(providerCases)('$id', (provider) => {
     ).rejects.toThrow(TypeError);
   });
 
+  it('reports a programmer error before an unusable secret (documented check order)', async () => {
+    const headers = await sign();
+    // A parsed body with a missing secret must point at the body parser.
+    await expect(
+      provider.verify({ payload: { a: 1 } as unknown as string, headers, secret: '', now: NOW }),
+    ).rejects.toThrow(/raw request body/);
+    await expect(
+      provider.verify({ payload, headers: 'x' as unknown as Headers, secret: '', now: NOW }),
+    ).rejects.toThrow(TypeError);
+  });
+
   const { timestamp } = provider;
   if (timestamp === undefined) {
     it('has no replay window: an old signature still verifies', async () => {
