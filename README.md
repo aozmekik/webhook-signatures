@@ -142,7 +142,9 @@ verifyWebhook('github', { payload, headers, secret }) // Promise<GitHubVerifyRes
 
 - `payload`: the raw body, `string | Uint8Array | ArrayBuffer`. Passing a parsed
   object throws a `TypeError` that points at the body parser.
-- `headers`: a `Headers` object or a plain record such as Node's `req.headers`.
+- `headers`: a `Headers` object or a plain record such as Node's `req.headers`,
+  whose values are strings or arrays of strings (`undefined` and `null` count
+  as absent).
 - `secret`: a string, or an array of strings during a rotation.
 - `toleranceSeconds`: only on schemes that sign a timestamp. `Infinity`
   disables the check; `0` means "not older than now".
@@ -179,16 +181,20 @@ log: they never contain secrets or expected signatures, and they hint when a
 secret has stray whitespace. Answer the first four codes with a plain 400 and
 keep the code in your logs; `invalid_secret` is a configuration error and
 belongs in a 500. Programmer errors (a parsed body, a negative tolerance, a
-relative Twilio URL) throw `TypeError` / `RangeError` instead.
+relative Twilio URL, a header value that is not a string) throw `TypeError` /
+`RangeError` instead.
 
-The checks always run in this order, so a timestamp error is only reported for
-a request that was genuinely signed:
+The checks always run in this order, so a programmer error is never reported
+as `invalid_secret`, and a timestamp error is only reported for a request that
+was genuinely signed. The first step checks the type of the options, the
+payload, the headers object and the value of every header the verifier reads;
+the values of other headers are not inspected.
 
 ```mermaid
 flowchart LR
-  A[options, headers and payload types] -->|TypeError / RangeError| X1[programmer error]
+  A["types of options, payload, headers and header values read"] -->|TypeError / RangeError| X1[programmer error]
   A --> B[secret] -->|invalid_secret| X2[reject]
-  B --> C[headers] -->|missing_header / malformed_header| X2
+  B --> C[header contents] -->|missing_header / malformed_header| X2
   C --> D[HMAC via crypto.subtle.verify] -->|signature_mismatch| X2
   D --> E[signed timestamp] -->|timestamp_out_of_tolerance| X2
   E --> F[typed result]

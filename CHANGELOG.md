@@ -22,8 +22,9 @@ First release, from GitHub only; not published to npm.
   result types; with a union of providers, the options must suit all of them.
 - `WebhookVerificationError` with stable codes: `missing_header`,
   `malformed_header`, `timestamp_out_of_tolerance`, `signature_mismatch`,
-  `invalid_secret`. Programmer errors are `TypeError` / `RangeError` and are
-  reported before secret errors.
+  `invalid_secret`. Programmer errors (a payload that is not raw bytes,
+  headers or a read header value of the wrong type, invalid options) are
+  `TypeError` / `RangeError` and are reported before secret errors.
 - Replay windows checked in both directions with provider defaults (300 s;
   for Paddle 5 s for old timestamps and at least 60 s for clock skew ahead of
   now) and an injectable clock.

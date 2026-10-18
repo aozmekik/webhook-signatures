@@ -18,20 +18,32 @@ different replay windows, and some only check one direction.
 `invalid_secret`, plus `provider` and the lower-case `header` concerned.
 Programmer errors (a payload that is not a string or bytes, usually because a
 body parser already ran; a negative tolerance; an invalid `now`; a relative
-Twilio URL) reject with `TypeError` or `RangeError`, so they surface in tests
-instead of looking like a bad request.
+Twilio URL; a header value that is not a string or an array of strings)
+reject with `TypeError` or `RangeError`, so they surface in tests instead of
+looking like a bad request.
 
-**Fixed check order.** Options (`TypeError` / `RangeError`: tolerance, clock,
-Twilio URL and scheme, the type of the headers and of the payload), then
-secrets (`invalid_secret`), then headers (`missing_header`,
-`malformed_header`), then the HMAC (`signature_mismatch`), then the clock
-(`timestamp_out_of_tolerance`). Every verifier gets the first steps from one
-shared function, and the conformance suite checks that a parsed body with a
-missing secret reports the `TypeError`, which points at the body parser. Verifying the signature before
-the timestamp means `timestamp_out_of_tolerance` is only ever reported for a
-request the provider really signed: it points at a replay or at clock skew,
-never at a forgery. The cost is one HMAC for stale forged requests, which is
-the same cost as any forged request.
+**Fixed check order.** Types first (`TypeError` / `RangeError`: tolerance,
+clock, Twilio URL and scheme, the headers object, the value of every header
+the verifier reads, and the payload), then secrets (`invalid_secret`), then
+header contents (`missing_header`, `malformed_header`), then the HMAC
+(`signature_mismatch`), then the clock (`timestamp_out_of_tolerance`).
+
+Every verifier gets the type and secret steps from one shared function. It
+takes the names of all the headers the verifier will read, type-checks their
+values before it looks at the secret, and returns the only way to read them,
+typed to those names, so a verifier cannot read a header that was not checked
+up front. The values of other headers are never inspected, so an unrelated
+non-string value does not block verification. Content errors such as
+conflicting duplicates are raised when a header is read, after the secret
+check. The conformance suite checks, per provider, that a parsed body or a
+non-string value in any header it reads, combined with an unusable secret,
+reports the `TypeError`, which points at the actual mistake.
+
+Verifying the signature before the timestamp means
+`timestamp_out_of_tolerance` is only ever reported for a request the provider
+really signed: it points at a replay or at clock skew, never at a forgery.
+The cost is one HMAC for stale forged requests, which is the same cost as any
+forged request.
 
 **Windows in both directions, with provider defaults.** The signed timestamp
 must be within `toleranceSeconds` of `now` (inclusive). Defaults follow each
